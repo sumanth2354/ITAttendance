@@ -77,6 +77,20 @@ const getCurrentTime = () => {
     return `${hours}:${minutes}`;
 };
 
+// Debug endpoint to verify server time in production
+app.get('/debug/time', (req, res) => {
+    const now = new Date();
+    const nowIST = getNowIST();
+    res.json({
+        tzEnv: process.env.TZ,
+        timeOffsetMinutes: TIME_OFFSET_MINUTES,
+        utcNow: now.toISOString(),
+        computedISTIso: nowIST.toISOString(),
+        computedDayOfWeek: getCurrentDayOfWeek(),
+        computedTimeHHMM: getCurrentTime()
+    });
+});
+
 const getCurrentPeriod = async (classId) => {
     const currentDay = getCurrentDayOfWeek();
     const currentTime = getCurrentTime();
