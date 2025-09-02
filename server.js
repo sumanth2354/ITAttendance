@@ -60,15 +60,20 @@ const formatDateLocal = (dateInput) => {
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
+// Compute time in IST explicitly to avoid server timezone differences (e.g., Vercel UTC)
+const getNowIST = () => new Date(Date.now() + (5.5 * 60 * 60 * 1000)); // UTC+5:30
+
 const getCurrentDayOfWeek = () => {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    return dayOfWeek === 0 ? 7 : dayOfWeek; // Convert Sunday (0) to 7 to match our database
+    const ist = getNowIST();
+    const dayOfWeek = ist.getUTCDay(); // 0 = Sunday
+    return dayOfWeek === 0 ? 7 : dayOfWeek;
 };
 
 const getCurrentTime = () => {
-    const now = new Date();
-    return now.toTimeString().slice(0, 5); // HH:MM format
+    const ist = getNowIST();
+    const hours = String(ist.getUTCHours()).padStart(2, '0');
+    const minutes = String(ist.getUTCMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
 };
 
 const getCurrentPeriod = async (classId) => {
