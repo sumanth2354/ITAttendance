@@ -1,6 +1,7 @@
 require('dotenv').config();
 // Force server timezone to IST if not provided by environment
 process.env.TZ = process.env.TZ || 'Asia/Kolkata';
+const TIME_OFFSET_MINUTES = parseInt(process.env.TIME_OFFSET_MINUTES || '0', 10) || 0;
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
@@ -61,7 +62,7 @@ const formatDateLocal = (dateInput) => {
     return `${year}-${month}-${day}`;
 };
 // Compute time in IST explicitly to avoid server timezone differences (e.g., Vercel UTC)
-const getNowIST = () => new Date(Date.now() + (5.5 * 60 * 60 * 1000)); // UTC+5:30
+const getNowIST = () => new Date(Date.now() + (5.5 * 60 * 60 * 1000) + (TIME_OFFSET_MINUTES * 60 * 1000)); // UTC+5:30 + manual offset
 
 const getCurrentDayOfWeek = () => {
     const ist = getNowIST();
@@ -1990,16 +1991,21 @@ app.get('/student/dashboard', requireAuth, (req, res) => {
 });
 
 // Initialize database and start server
-initDatabase().then(() => {
-    app.listen(PORT, () => {
-        console.log(`\n🎓 IT Department Attendance System running on http://localhost:${PORT}`);
-        console.log('\n📋 Login Credentials:');
-        console.log('👨‍💼 Admin (HOD): username=hod, password=password');
-        console.log('👨‍🏫 Teacher: username=teacher1, password=password');
-        console.log('👨‍🎓 Students: Register ID as username and password\n');
+if (require.main === module) {
+    initDatabase().then(() => {
+        app.listen(PORT, () => {
+            console.log(`\n🎓 IT Department Attendance System running on http://localhost:${PORT}`);
+            console.log('\n📋 Login Credentials:');
+            console.log('👨‍💼 Admin (HOD): username=hod, password=password');
+            console.log('👨‍🏫 Teacher: username=teacher1, password=password');
+            console.log('👨‍🎓 Students: Register ID as username and password\n');
+        });
+    }).catch(err => {
+        console.error('Failed to initialize database:', err);
     });
-}).catch(err => {
-    console.error('Failed to initialize database:', err);
-});
+} else {
+    // For serverless runtimes (e.g., Vercel), initialize DB but do not listen
+    initDatabase().catch(err => console.error('Failed to initialize database:', err));
+}
 
 module.exports = app;
