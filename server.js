@@ -1,4 +1,6 @@
 require('dotenv').config();
+// Force server timezone to IST if not provided by environment
+process.env.TZ = process.env.TZ || 'Asia/Kolkata';
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
