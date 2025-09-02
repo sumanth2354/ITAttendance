@@ -62,7 +62,7 @@ const formatDateLocal = (dateInput) => {
     return `${year}-${month}-${day}`;
 };
 // Compute time in IST explicitly to avoid server timezone differences (e.g., Vercel UTC)
-const getNowIST = () => new Date(Date.now() + (5.5 * 60 * 60 * 1000) + (330 * 60 * 1000)); // UTC+5:30 + manual offset
+const getNowIST = () => new Date(Date.now() + (5.5 * 60 * 60 * 1000) + (TIME_OFFSET_MINUTES* 60 * 1000)); // UTC+5:30 + manual offset
 
 const getCurrentDayOfWeek = () => {
     const ist = getNowIST();
