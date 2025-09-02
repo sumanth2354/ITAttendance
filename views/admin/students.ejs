@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management - Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav-left h1 {
+            font-size: 24px;
+        }
+        
+        .nav-right a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 5px;
+            transition: all 0.3s;
+            margin-left: 10px;
+        }
+        
+        .nav-right a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+        
+        .class-selector {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group.inline {
+            display: inline-block;
+            margin-right: 15px;
+            margin-bottom: 0;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background: #dc3545;
+            color: white;
+            font-weight: 600;
+        }
+        
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .no-students {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .info-card {
+            background: #e8f4fd;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .class-info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .student-count {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+        
+        .close {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #999;
+        }
+        
+        .close:hover {
+            color: #333;
+        }
+        
+        .bulk-upload {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .bulk-upload h4 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .example-format {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin: 10px 0;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            color: #155724;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="nav-container">
+            <div class="nav-left">
+                <h1>👨‍🎓 Student Management</h1>
+            </div>
+            <div class="nav-right">
+                <a href="/admin/dashboard">← Dashboard</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Class Selection Section -->
+        <div class="card">
+            <h3>📚 Select Class to Manage</h3>
+            <div class="class-selector">
+                <div class="form-group inline">
+                    <label for="selectedClass">Choose Class:</label>
+                    <select id="selectedClass" style="width: 300px;">
+                        <option value="">-- Select a class --</option>
+                        <% classes.forEach(cls => { %>
+                            <option value="<%= cls.id %>" data-name="<%= cls.class_name %>">
+                                <%= cls.class_name %> (<%= cls.total_students %> students)
+                            </option>
+                        <% }); %>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="loadClassStudents()">📋 Load Students</button>
+            </div>
+        </div>
+
+        <!-- Class Info Card (Hidden initially) -->
+        <div id="classInfoCard" class="class-info hidden">
+            <h4 id="selectedClassName">Class Name</h4>
+            <div class="student-count" id="studentCount">0 students enrolled</div>
+        </div>
+
+        <!-- Student Management Actions -->
+        <div id="studentActions" class="card hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3>Student Management</h3>
+                <div>
+                    <button class="btn btn-success" onclick="showAddStudentModal()">➕ Add Individual Student</button>
+                    <button class="btn btn-primary" onclick="showBulkUploadModal()">📤 Bulk Add Students</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Students Table -->
+        <div id="studentsTableContainer" class="table-container hidden">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Roll No</th>
+                        <th>Student Name</th>
+                        <th>Register ID</th>
+                        <th>Username</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="studentsTableBody">
+                    <tr class="no-students">
+                        <td colspan="6">Please select a class to view students</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add Individual Student Modal -->
+    <div id="addStudentModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addStudentModal')">&times;</span>
+            <h3>➕ Add New Student</h3>
+            <form id="singleStudentForm">
+                <div class="form-group">
+                    <label for="rollNo">Roll Number:</label>
+                    <input type="number" id="rollNo" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="studentName">Student Name:</label>
+                    <input type="text" id="studentName" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerId">Register ID:</label>
+                    <input type="text" id="registerId" required>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn" onclick="closeModal('addStudentModal')" style="background: #6c757d;">Cancel</button>
+                    <button type="submit" class="btn btn-success">Add Student</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Student Modal -->
+    <div id="editStudentModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('editStudentModal')">&times;</span>
+            <h3>✏️ Edit Student</h3>
+            <form id="editStudentForm">
+                <input type="hidden" id="editStudentId">
+                <div class="form-group">
+                    <label for="editRollNo">Roll Number:</label>
+                    <input type="number" id="editRollNo" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="editStudentName">Student Name:</label>
+                    <input type="text" id="editStudentName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editRegisterId">Register ID:</label>
+                    <input type="text" id="editRegisterId" required>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn" onclick="closeModal('editStudentModal')" style="background: #6c757d;">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Update Student</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bulk Upload Modal -->
+    <div id="bulkUploadModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close" onclick="closeModal('bulkUploadModal')">&times;</span>
+            <h3>📤 Bulk Add Students</h3>
+            <div class="info-card">
+                <strong>Tip:</strong> You can add multiple students at once using the format below.
+            </div>
+            <form id="bulkStudentForm">
+                <div class="form-group">
+                    <label>Student Data (JSON Format):</label>
+                    <textarea id="bulkStudentsData" placeholder="Enter student data in JSON format..." style="min-height: 150px;" required></textarea>
+                    <div class="example-format">
+                        <strong>Example format:</strong><br>
+                        [<br>
+                        &nbsp;&nbsp;{ "roll_no": 1, "name": "John Doe", "register_id": "STU001" },<br>
+                        &nbsp;&nbsp;{ "roll_no": 2, "name": "Jane Smith", "register_id": "STU002" },<br>
+                        &nbsp;&nbsp;{ "roll_no": 3, "name": "Mike Johnson", "register_id": "STU003" }<br>
+                        ]
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn" onclick="closeModal('bulkUploadModal')" style="background: #6c757d;">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Students</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentClassId = null;
+        let currentStudents = [];
+        
+        // Refresh class dropdown with updated student counts
+        async function refreshClassDropdown() {
+            try {
+                const response = await fetch('/admin/classes/list');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const classSelect = document.getElementById('selectedClass');
+                    const currentValue = classSelect.value;
+                    
+                    // Clear existing options except the first one
+                    classSelect.innerHTML = '<option value="">-- Select a class --</option>';
+                    
+                    // Add updated class options
+                    data.classes.forEach(cls => {
+                        const option = document.createElement('option');
+                        option.value = cls.id;
+                        option.dataset.name = cls.class_name;
+                        option.textContent = `${cls.class_name} (${cls.total_students} students)`;
+                        
+                        // Keep the current selection
+                        if (cls.id == currentValue) {
+                            option.selected = true;
+                        }
+                        
+                        classSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error refreshing class dropdown:', error);
+            }
+        }
+        
+        // Load students for selected class
+        async function loadClassStudents() {
+            const classSelect = document.getElementById('selectedClass');
+            const classId = classSelect.value;
+            
+            if (!classId) {
+                alert('Please select a class first');
+                return;
+            }
+            
+            currentClassId = classId;
+            const className = classSelect.options[classSelect.selectedIndex].dataset.name;
+            
+            try {
+                const response = await fetch(`/admin/students/class/${classId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentStudents = data.students;
+                    updateStudentsDisplay(data.students, className);
+                    showManagementSection();
+                } else {
+                    alert('Failed to load students: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error loading students: ' + error.message);
+            }
+        }
+        
+        // Update students table display
+        function updateStudentsDisplay(students, className) {
+            // Update class info
+            document.getElementById('selectedClassName').textContent = className;
+            document.getElementById('studentCount').textContent = `${students.length} students enrolled`;
+            document.getElementById('classInfoCard').classList.remove('hidden');
+            
+            // Update table
+            const tbody = document.getElementById('studentsTableBody');
+            tbody.innerHTML = '';
+            
+            if (students.length === 0) {
+                tbody.innerHTML = '<tr class="no-students"><td colspan="6">No students in this class yet</td></tr>';
+            } else {
+                students.forEach(student => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${student.roll_no}</td>
+                        <td>${student.student_name}</td>
+                        <td>${student.register_id || 'N/A'}</td>
+                        <td>${student.username || 'N/A'}</td>
+                        <td><span style="color: #28a745;">Active</span></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-warning btn-sm" onclick="editStudent(${student.id}, '${student.student_name}', ${student.roll_no}, '${student.register_id || ''}')">
+                                    ✏️ Edit
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteStudent(${student.id}, '${student.student_name}')">
+                                    🗑️ Delete
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+            
+            document.getElementById('studentsTableContainer').classList.remove('hidden');
+        }
+        
+        // Show management section
+        function showManagementSection() {
+            document.getElementById('studentActions').classList.remove('hidden');
+        }
+        
+        // Modal functions
+        function showAddStudentModal() {
+            if (!currentClassId) {
+                alert('Please select a class first');
+                return;
+            }
+            document.getElementById('addStudentModal').style.display = 'block';
+        }
+        
+        function showBulkUploadModal() {
+            if (!currentClassId) {
+                alert('Please select a class first');
+                return;
+            }
+            document.getElementById('bulkUploadModal').style.display = 'block';
+        }
+        
+        function editStudent(studentId, name, rollNo, registerId) {
+            document.getElementById('editStudentId').value = studentId;
+            document.getElementById('editStudentName').value = name;
+            document.getElementById('editRollNo').value = rollNo;
+            document.getElementById('editRegisterId').value = registerId;
+            document.getElementById('editStudentModal').style.display = 'block';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+        
+        // Add individual student
+        document.getElementById('singleStudentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const rollNo = document.getElementById('rollNo').value;
+            const studentName = document.getElementById('studentName').value;
+            const registerId = document.getElementById('registerId').value;
+            
+            try {
+                const response = await fetch('/admin/students/add-individual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        class_id: currentClassId,
+                        roll_no: parseInt(rollNo),
+                        name: studentName,
+                        register_id: registerId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Student added successfully!');
+                    closeModal('addStudentModal');
+                    document.getElementById('singleStudentForm').reset();
+                    loadClassStudents(); // Reload students
+                    refreshClassDropdown(); // Refresh dropdown with updated counts
+                } else {
+                    alert('Failed to add student: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error adding student: ' + error.message);
+            }
+        });
+        
+        // Edit student
+        document.getElementById('editStudentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const studentId = document.getElementById('editStudentId').value;
+            const rollNo = document.getElementById('editRollNo').value;
+            const studentName = document.getElementById('editStudentName').value;
+            const registerId = document.getElementById('editRegisterId').value;
+            
+            try {
+                const response = await fetch(`/admin/students/edit/${studentId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        roll_no: parseInt(rollNo),
+                        name: studentName,
+                        register_id: registerId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Student updated successfully!');
+                    closeModal('editStudentModal');
+                    loadClassStudents(); // Reload students
+                } else {
+                    alert('Failed to update student: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error updating student: ' + error.message);
+            }
+        });
+        
+        // Bulk upload students
+        document.getElementById('bulkStudentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const studentsData = document.getElementById('bulkStudentsData').value;
+            
+            try {
+                JSON.parse(studentsData); // Validate JSON
+            } catch (error) {
+                alert('Invalid JSON format. Please check the example and try again.');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/students/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        class_id: currentClassId,
+                        students_data: studentsData
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Students added successfully!');
+                    closeModal('bulkUploadModal');
+                    document.getElementById('bulkStudentForm').reset();
+                    loadClassStudents(); // Reload students
+                    refreshClassDropdown(); // Refresh dropdown with updated counts
+                } else {
+                    alert('Failed to add students: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error adding students: ' + error.message);
+            }
+        });
+        
+        // Delete student function
+        async function deleteStudent(studentId, studentName) {
+            if (confirm(`Are you sure you want to delete "${studentName}"?\n\nThis will also delete all their attendance records and cannot be undone.`)) {
+                try {
+                    const response = await fetch(`/admin/students/delete/${studentId}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert('Student deleted successfully!');
+                        loadClassStudents(); // Reload students
+                        refreshClassDropdown(); // Refresh dropdown with updated counts
+                    } else {
+                        alert('Error deleting student: ' + data.message);
+                    }
+                } catch (error) {
+                    alert('Error deleting student: ' + error.message);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Timetable - <%= user.name %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .page-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 0;
+            margin-bottom: 30px;
+        }
+        
+        .timetable-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .day-header {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px 10px 0 0;
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 0;
+        }
+        
+        .periods-container {
+            border: 2px solid #74b9ff;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .period-slot {
+            background: #f8f9fa;
+            border-left: 4px solid #28a745;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        .period-slot:hover {
+            transform: translateX(5px);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        
+        .period-slot.break {
+            background: linear-gradient(135deg, #ffeaa7, #fab1a0);
+            border-left-color: #e17055;
+        }
+        
+        .period-slot.current {
+            background: linear-gradient(135deg, #00b894, #00a085);
+            color: white;
+            border-left-color: #00b894;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0,184,148,0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0,184,148,0); }
+            100% { box-shadow: 0 0 0 0 rgba(0,184,148,0); }
+        }
+        
+        .period-number {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 15px;
+            font-size: 14px;
+        }
+        
+        .period-slot.break .period-number {
+            background: #e17055;
+        }
+        
+        .period-slot.current .period-number {
+            background: white;
+            color: #00b894;
+        }
+        
+        .period-info {
+            flex-grow: 1;
+            margin-left: 15px;
+        }
+        
+        .period-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 3px;
+        }
+        
+        .period-details {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .period-time {
+            font-weight: 500;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .period-slot.current .period-time {
+            color: white;
+        }
+        
+        .no-periods {
+            text-align: center;
+            padding: 30px;
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        .current-time-info {
+            background: linear-gradient(135deg, #00b894, #00a085);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .current-time-info h4 {
+            margin-bottom: 10px;
+        }
+        
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            border-left: 4px solid #007bff;
+        }
+        
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+        
+        .legend-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+        }
+        
+        .legend-regular { background: #f8f9fa; border: 2px solid #28a745; }
+        .legend-break { background: linear-gradient(135deg, #ffeaa7, #fab1a0); }
+        .legend-current { background: linear-gradient(135deg, #00b894, #00a085); }
+        
+        .quick-action-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        
+        .quick-action-btn:hover {
+            background: #218838;
+            color: white;
+            transform: translateY(-1px);
+        }
+        
+        .day-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        @media (min-width: 992px) {
+            .day-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (min-width: 1400px) {
+            .day-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h1><i class="fas fa-calendar-week me-3"></i>My Timetable</h1>
+                    <p class="mb-0">Weekly schedule for <%= user.name %></p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <a href="/teacher/dashboard" class="btn btn-light btn-lg">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Current Time Info -->
+        <div class="current-time-info">
+            <h4><i class="fas fa-clock me-2"></i>Current Time</h4>
+            <p class="mb-0"><%= currentDayName %>, <%= currentTime %></p>
+            <% if (currentPeriodInfo) { %>
+                <small>Currently in: <%= currentPeriodInfo.subject_name %> - <%= currentPeriodInfo.class_name %></small>
+            <% } else { %>
+                <small>No active period right now</small>
+            <% } %>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-number"><%= totalPeriods %></div>
+                <div class="stat-label">Total Periods/Week</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number"><%= uniqueClasses %></div>
+                <div class="stat-label">Classes Teaching</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number"><%= uniqueSubjects %></div>
+                <div class="stat-label">Different Subjects</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number"><%= todayPeriods %></div>
+                <div class="stat-label">Periods Today</div>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-box legend-regular"></div>
+                <span>Regular Class</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box legend-break"></div>
+                <span>Break Time</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box legend-current"></div>
+                <span>Current Period</span>
+            </div>
+        </div>
+
+        <!-- Timetable Container -->
+        <div class="timetable-container">
+            <h3 class="text-center mb-4"><i class="fas fa-table me-2"></i>Weekly Schedule</h3>
+            
+            <div class="day-grid">
+                <% Object.keys(timetable).forEach(dayNum => { 
+                    const dayData = timetable[dayNum];
+                    if (dayData && dayData.periods && dayData.periods.length > 0) {
+                %>
+                    <div class="day-section">
+                        <div class="day-header">
+                            <i class="fas fa-calendar-day me-2"></i><%= dayData.day %>
+                        </div>
+                        <div class="periods-container">
+                            <% dayData.periods.forEach(period => { 
+                                const isCurrentPeriod = currentPeriodInfo && 
+                                                      currentPeriodInfo.id === period.id;
+                                const periodClass = period.is_break ? 'break' : 
+                                                  isCurrentPeriod ? 'current' : '';
+                            %>
+                                <div class="period-slot <%= periodClass %>">
+                                    <div class="d-flex align-items-center">
+                                        <span class="period-number"><%= period.period_number %></span>
+                                        <div class="period-info">
+                                            <div class="period-title">
+                                                <% if (period.is_break) { %>
+                                                    <i class="fas fa-coffee me-1"></i><%= period.break_name || 'Break' %>
+                                                <% } else { %>
+                                                    <i class="fas fa-book me-1"></i><%= period.subject_name %>
+                                                    <span class="badge bg-primary ms-2"><%= period.subject_code %></span>
+                                                <% } %>
+                                            </div>
+                                            <div class="period-details">
+                                                <% if (!period.is_break) { %>
+                                                    <i class="fas fa-graduation-cap me-1"></i><%= period.class_name %>
+                                                <% } %>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="period-time">
+                                            <i class="fas fa-clock me-1"></i>
+                                            <%= period.start_time.slice(0,5) %> - <%= period.end_time.slice(0,5) %>
+                                        </div>
+                                        <% if (!period.is_break && period.class_id) { %>
+                                            <a href="/teacher/class/<%= period.class_id %>/attendance" 
+                                               class="quick-action-btn">
+                                                <i class="fas fa-user-check me-1"></i>Attendance
+                                            </a>
+                                        <% } %>
+                                    </div>
+                                </div>
+                            <% }); %>
+                        </div>
+                    </div>
+                <% } }); %>
+            </div>
+            
+            <% if (Object.keys(timetable).length === 0 || 
+                   Object.values(timetable).every(day => !day.periods || day.periods.length === 0)) { %>
+                <div class="no-periods">
+                    <i class="fas fa-calendar-times" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                    <h5>No Timetable Assigned</h5>
+                    <p>Your timetable hasn't been set up yet. Please contact the HOD to assign your teaching schedule.</p>
+                </div>
+            <% } %>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="text-center mb-4">
+            <a href="/teacher/dashboard" class="btn btn-primary btn-lg me-3">
+                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+            </a>
+            <button class="btn btn-success btn-lg" onclick="window.location.reload()">
+                <i class="fas fa-sync-alt me-2"></i>Refresh Schedule
+            </button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auto-refresh every 5 minutes to keep current period updated
+        setInterval(() => {
+            console.log('Auto-refreshing timetable...');
+            window.location.reload();
+        }, 300000); // 5 minutes
+
+        // Highlight current time slot
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPeriods = document.querySelectorAll('.period-slot.current');
+            if (currentPeriods.length > 0) {
+                currentPeriods[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    </script>
+</body>
+</html>

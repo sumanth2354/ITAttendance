@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Subjects - Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav-left h1 {
+            font-size: 24px;
+        }
+        
+        .nav-right a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 5px;
+            transition: all 0.3s;
+            margin-left: 10px;
+        }
+        
+        .nav-right a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .form-card {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #28a745;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .btn:hover {
+            background: #218838;
+        }
+        
+        .subjects-table {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background: #dc3545;
+            color: white;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-theory {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        
+        .badge-lab {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .badge-elective {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c33;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="nav-container">
+            <div class="nav-left">
+                <h1>📚 Manage Subjects</h1>
+            </div>
+            <div class="nav-right">
+                <a href="/admin/dashboard">← Dashboard</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <% if (typeof success !== 'undefined' && success) { %>
+            <div class="success"><%= success %></div>
+        <% } %>
+        
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="error"><%= error %></div>
+        <% } %>
+        
+        <div class="form-card">
+            <h3>Add New Subject</h3>
+            <p style="margin-bottom: 20px; color: #666;">Add subjects that will be used in class timetables.</p>
+            
+            <form method="POST" action="/admin/subjects/create">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="subject_name">Subject Name:</label>
+                        <input type="text" name="subject_name" required placeholder="e.g., Java Programming">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="subject_code">Subject Code:</label>
+                        <input type="text" name="subject_code" placeholder="e.g., IT301">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="subject_type">Subject Type:</label>
+                        <select name="subject_type" required>
+                            <option value="theory">Theory</option>
+                            <option value="lab">Lab</option>
+                            <option value="elective">Elective</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn">Add Subject</button>
+            </form>
+        </div>
+        
+        <div class="subjects-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Subject Name</th>
+                        <th>Subject Code</th>
+                        <th>Type</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% subjects.forEach(subject => { %>
+                        <tr>
+                            <td><%= subject.subject_name %></td>
+                            <td><%= subject.subject_code %></td>
+                            <td>
+                                <span class="badge badge-<%= subject.subject_type %>">
+                                    <%= subject.subject_type.charAt(0).toUpperCase() + subject.subject_type.slice(1) %>
+                                </span>
+                            </td>
+                            <td><%= new Date(subject.created_at).toLocaleDateString() %></td>
+                            <td>
+                                <button class="btn" onclick="editSubject(<%= subject.id %>, '<%= subject.subject_name %>', '<%= subject.subject_code %>', '<%= subject.subject_type %>')" style="background: #17a2b8; padding: 6px 12px; font-size: 12px; margin-right: 5px;">
+                                    ✏️ Edit
+                                </button>
+                                <button class="btn" onclick="deleteSubject(<%= subject.id %>, '<%= subject.subject_name %>')" style="background: #dc3545; padding: 6px 12px; font-size: 12px;">
+                                    🗑️ Delete
+                                </button>
+                            </td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        function editSubject(id, name, code, type) {
+            const newName = prompt('Subject Name:', name);
+            if (newName === null) return;
+            
+            const newCode = prompt('Subject Code:', code);
+            if (newCode === null) return;
+            
+            const newType = prompt('Subject Type (theory/lab/elective):', type);
+            if (newType === null) return;
+            
+            if (!['theory', 'lab', 'elective'].includes(newType)) {
+                alert('Subject type must be: theory, lab, or elective');
+                return;
+            }
+            
+            fetch(`/admin/subjects/edit/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    subject_name: newName,
+                    subject_code: newCode,
+                    subject_type: newType
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Subject updated successfully!');
+                    location.reload();
+                } else {
+                    alert('Error updating subject: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error updating subject: ' + error.message);
+            });
+        }
+        
+        function deleteSubject(id, name) {
+            if (confirm(`Are you sure you want to delete the subject "${name}"?\n\nThis cannot be undone and may affect existing timetables.`)) {
+                fetch(`/admin/subjects/delete/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Subject deleted successfully!');
+                        location.reload();
+                    } else {
+                        alert('Error deleting subject: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Error deleting subject: ' + error.message);
+                });
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard - <%= user.name %></title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav-left h1 {
+            font-size: 24px;
+        }
+        
+        .nav-left p {
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .nav-right a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        .nav-right a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .welcome-card {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .welcome-card h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .welcome-card p {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .classes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        .class-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .class-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        
+        .class-info h3 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .class-meta {
+            color: #666;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+        }
+        
+        .class-meta span {
+            background: #f0f0f0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .class-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c33;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .refresh-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .refresh-btn:hover {
+            background: #218838;
+        }
+        
+        .refresh-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .last-updated {
+            color: #666;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        
+        .current-period-section {
+            background: linear-gradient(135deg, #00b894, #00a085);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,184,148,0.3);
+        }
+        
+        .current-period-section h3 {
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .current-classes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        
+        .current-class-card {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .period-info {
+            text-align: center;
+            margin-right: 15px;
+        }
+        
+        .period-badge {
+            background: #007bff;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .time-info {
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+        }
+        
+        .class-details {
+            flex-grow: 1;
+        }
+        
+        .class-details h4 {
+            margin: 0 0 5px 0;
+            font-size: 18px;
+            color: #333;
+        }
+        
+        .class-details p {
+            margin: 2px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .quick-actions .btn {
+            background: #28a745;
+            border: none;
+            padding: 8px 16px;
+            font-size: 14px;
+            border-radius: 5px;
+            text-decoration: none;
+        }
+        
+        .quick-actions .btn:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+        
+        .no-current-period {
+            margin-bottom: 30px;
+        }
+        
+        .info-card {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            color: #1976d2;
+        }
+        
+        .info-card i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.7;
+        }
+        
+        .info-card h4 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+        
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        /* Weekly Schedule Styles */
+        .weekly-schedule-section {
+            margin-bottom: 30px;
+        }
+        
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .schedule-day {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .schedule-day:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        
+        .day-header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .day-header h3 {
+            color: #667eea;
+            font-size: 18px;
+            margin: 0;
+        }
+        
+        .day-periods {
+            min-height: 100px;
+        }
+        
+        .period-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .period-time {
+            margin-bottom: 8px;
+        }
+        
+        .time-badge {
+            background: #667eea;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .period-details strong {
+            color: #333;
+            font-size: 14px;
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .subject-info {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .no-periods {
+            text-align: center;
+            padding: 20px 0;
+            color: #999;
+        }
+        
+        .no-class-text {
+            font-style: italic;
+            font-size: 14px;
+        }
+        
+        /* Multiple Classes Styling */
+        .schedule-day.multiple-classes {
+            border: 2px solid #ff6b6b;
+            background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
+        }
+        
+        .schedule-day.multiple-classes .day-header {
+            border-bottom: 2px solid #ff6b6b;
+            position: relative;
+        }
+        
+        .multiple-classes-badge {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: #ff6b6b;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .badge-text {
+            font-size: 10px;
+        }
+        
+        .period-item.multiple-class-period {
+            border-left: 4px solid #ff6b6b;
+            background: #fff8f8;
+            position: relative;
+        }
+        
+        .period-item.multiple-class-period:hover {
+            background: #ffe8e8;
+            transform: translateX(2px);
+        }
+        
+        .period-number {
+            background: #ff6b6b;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        
+        .schedule-day.multiple-classes .period-item {
+            margin-bottom: 12px;
+            box-shadow: 0 2px 4px rgba(255,107,107,0.1);
+        }
+        
+        /* Multiple Periods Class Card Styling */
+        .class-card.multiple-periods-class {
+            border: 2px solid #ff6b6b;
+            background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
+            position: relative;
+        }
+        
+        .class-card.multiple-periods-class::before {
+            content: "📚";
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff6b6b;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .multiple-periods-badge {
+            background: #ff6b6b;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="nav-container">
+            <div class="nav-left">
+                <h1>Teacher Dashboard</h1>
+                <p>Welcome, <%= user.name %></p>
+            </div>
+            <div class="nav-right">
+                <a href="/teacher/timetable" style="margin-right: 15px;">📅 My Timetable</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="welcome-card">
+            <h2>Welcome to the Attendance Management System</h2>
+            <p>Manage attendance for your assigned classes and periods. Your current schedule is shown below.</p>
+        </div>
+        
+        <!-- Current Period Section -->
+        <% if (isCurrentPeriod && currentClasses.length > 0) { %>
+            <div class="current-period-section">
+                <h3><i class="fas fa-clock"></i> Current Period - <%= currentDayName %>, <%= currentTime %></h3>
+                <div class="current-classes-grid">
+                    <% currentClasses.forEach(cls => { %>
+                        <div class="current-class-card">
+                            <div class="period-info">
+                                <span class="period-badge">Period <%= cls.period_number %></span>
+                                <div class="time-info"><%= cls.start_time.slice(0,5) %> - <%= cls.end_time.slice(0,5) %></div>
+                            </div>
+                            <div class="class-details">
+                                <h4><%= cls.class_name %></h4>
+                                <p><strong><%= cls.subject_name %></strong> (<%= cls.subject_code %>)</p>
+                                <p><%= cls.total_students %> students</p>
+                            </div>
+                            <div class="quick-actions">
+                                <a href="/teacher/class/<%= cls.id %>/attendance" class="btn btn-primary btn-sm">
+                                    📝 Take Attendance
+                                </a>
+                            </div>
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+        <% } else { %>
+            <div class="no-current-period">
+                <div class="info-card">
+                    <i class="fas fa-info-circle"></i>
+                    <h4>No Current Period</h4>
+                    <p>You don't have any classes scheduled right now (<%= currentDayName %>, <%= currentTime %>).</p>
+                    <p>Check your schedule below or select a class for manual attendance.</p>
+                </div>
+            </div>
+        <% } %>
+        
+        <% if (error) { %>
+            <div class="error"><%= error %></div>
+        <% } %>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number"><%= classes.length %></div>
+                <div class="stat-label">Total Classes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">
+                    <%= classes.reduce((total, cls) => total + cls.total_students, 0) %>
+                </div>
+                <div class="stat-label">Total Students</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">3rd Year</div>
+                <div class="stat-label">Academic Year</div>
+            </div>
+        </div>
+        
+        <!-- Weekly Schedule Section -->
+        <% if (allAssignedClasses && allAssignedClasses.length > 0) { %>
+        <div class="weekly-schedule-section">
+            <h2 style="margin-bottom: 20px; color: #333;">
+                <i class="fas fa-calendar-week"></i> Weekly Schedule
+            </h2>
+            
+            <% 
+                // Calculate summary of multiple classes per day
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const multipleClassesSummary = [];
+                
+                days.forEach((day, dayIndex) => {
+                    const dayNumber = dayIndex + 1;
+                    const allDayPeriods = [];
+                    allAssignedClasses.forEach(cls => {
+                        if (cls.schedule) {
+                            const periods = cls.schedule.filter(period => period.day_of_week === dayNumber);
+                            periods.forEach(period => {
+                                allDayPeriods.push({
+                                    ...period,
+                                    class_name: cls.class_name,
+                                    class_id: cls.id
+                                });
+                            });
+                        }
+                    });
+                    
+                    const uniqueClasses = [...new Set(allDayPeriods.map(p => p.class_name))];
+                    if (uniqueClasses.length > 1) {
+                        multipleClassesSummary.push({
+                            day: day,
+                            classCount: uniqueClasses.length,
+                            classes: uniqueClasses
+                        });
+                    }
+                });
+            %>
+            
+            <% if (multipleClassesSummary.length > 0) { %>
+            <div class="multiple-classes-summary" style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%); border-radius: 10px; border-left: 4px solid #ff6b6b;">
+                <h3 style="color: #ff6b6b; margin-bottom: 10px; font-size: 16px;">
+                    📚 Days with Multiple Classes
+                </h3>
+                <div style="display: flex; flex-wrap: wrap; gap: 15px;">
+                    <% multipleClassesSummary.forEach(summary => { %>
+                        <div style="background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #ff6b6b; font-size: 14px;">
+                            <strong><%= summary.day %></strong>: 
+                            <span style="color: #ff6b6b;"><%= summary.classCount %> classes</span>
+                            <br>
+                            <small style="color: #666;"><%= summary.classes.join(', ') %></small>
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+            <% } %>
+            
+            <div class="schedule-grid">
+                <% const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']; %>
+                <% weekDays.forEach((day, dayIndex) => { %>
+                    <% const dayNumber = dayIndex + 1; %>
+                    <% 
+                        // Get all periods for this day across all classes
+                        const allDayPeriods = [];
+                        allAssignedClasses.forEach(cls => {
+                            if (cls.schedule) {
+                                const periods = cls.schedule.filter(period => period.day_of_week === dayNumber);
+                                periods.forEach(period => {
+                                    allDayPeriods.push({
+                                        ...period,
+                                        class_name: cls.class_name,
+                                        class_id: cls.id
+                                    });
+                                });
+                            }
+                        });
+                        
+                        // Sort periods by start time
+                        allDayPeriods.sort((a, b) => a.start_time.localeCompare(b.start_time));
+                        
+                        // Check if multiple classes on same day
+                        const uniqueClasses = [...new Set(allDayPeriods.map(p => p.class_name))];
+                        const hasMultipleClasses = uniqueClasses.length > 1;
+                    %>
+                    <div class="schedule-day <%= hasMultipleClasses ? 'multiple-classes' : '' %>">
+                        <div class="day-header">
+                            <h3><%= day %></h3>
+                            <% if (hasMultipleClasses) { %>
+                                <div class="multiple-classes-badge">
+                                    <span class="badge-text">📚 <%= uniqueClasses.length %> Classes</span>
+                                </div>
+                            <% } %>
+                        </div>
+                        <div class="day-periods">
+                            <% if (allDayPeriods.length > 0) { %>
+                                <% allDayPeriods.forEach((period, periodIndex) => { %>
+                                    <div class="period-item <%= hasMultipleClasses ? 'multiple-class-period' : '' %>">
+                                        <div class="period-time">
+                                            <span class="time-badge"><%= period.start_time.slice(0,5) %> - <%= period.end_time.slice(0,5) %></span>
+                                            <% if (hasMultipleClasses) { %>
+                                                <span class="period-number">P<%= period.period_number %></span>
+                                            <% } %>
+                                        </div>
+                                        <div class="period-details">
+                                            <strong><%= period.class_name %></strong>
+                                            <div class="subject-info">
+                                                <%= period.subject_name %> (<%= period.subject_code %>)
+                                            </div>
+                                        </div>
+                                    </div>
+                                <% }); %>
+                            <% } else { %>
+                                <div class="no-periods">
+                                    <span class="no-class-text">No classes</span>
+                                </div>
+                            <% } %>
+                        </div>
+                    </div>
+                <% }); %>
+            </div>
+        </div>
+        <% } %>
+        
+        <% if (isCurrentPeriod && currentClasses.length > 0) { %>
+            <h2 style="margin-bottom: 20px; color: #333;">All Assigned Classes</h2>
+        <% } else { %>
+            <h2 style="margin-bottom: 20px; color: #333;">All Classes (Manual Selection)</h2>
+        <% } %>
+        
+        <div class="classes-grid">
+            <% 
+                const dayNamesArray = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            %>
+            <% classes.forEach(class_ => { %>
+                <% 
+                    // Check if this class has multiple periods on the same day
+                    let hasMultiplePeriodsSameDay = false;
+                    let multiplePeriodDays = [];
+                    
+                    if (class_.schedule && class_.schedule.length > 0) {
+                        const dayCounts = {};
+                        class_.schedule.forEach(period => {
+                            const day = period.day_of_week;
+                            dayCounts[day] = (dayCounts[day] || 0) + 1;
+                        });
+                        
+                        Object.keys(dayCounts).forEach(day => {
+                            if (dayCounts[day] > 1) {
+                                hasMultiplePeriodsSameDay = true;
+                                multiplePeriodDays.push(dayNamesArray[day - 1]);
+                            }
+                        });
+                    }
+                %>
+                <div class="class-card <%= hasMultiplePeriodsSameDay ? 'multiple-periods-class' : '' %>">
+                    <div class="class-info">
+                        <h3><%= class_.class_name %></h3>
+                        <div class="class-meta">
+                            <span>👥 <%= class_.total_students %> Students</span>
+                            <span>📅 3rd Year IT</span>
+                            <% if (hasMultiplePeriodsSameDay) { %>
+                                <span class="multiple-periods-badge">📚 Multiple periods: <%= multiplePeriodDays.join(', ') %></span>
+                            <% } %>
+                        </div>
+                    </div>
+                    
+                    <div class="class-actions">
+                        <a href="/teacher/class/<%= class_.id %>/attendance" class="btn btn-primary">
+                            📝 Take Attendance
+                        </a>
+                        <a href="/teacher/attendance/<%= class_.id %>/history?view=week" class="btn btn-secondary">
+                            📅 Weekly History
+                        </a>
+                        <a href="/teacher/attendance/<%= class_.id %>/history?view=month" class="btn btn-secondary">
+                            📆 Monthly History
+                        </a>
+                        <a href="/teacher/reports/<%= class_.id %>?period=week" class="btn btn-secondary">
+                            📊 View Reports
+                        </a>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+        
+        <% if (classes.length === 0) { %>
+            <div class="welcome-card" style="text-align: center; margin-top: 50px;">
+                <h3>No classes available</h3>
+                <p>No classes have been created yet. Contact your administrator to create classes.</p>
+            </div>
+        <% } %>
+        
+        <div class="dashboard-header">
+            <div></div>
+            <button class="refresh-btn" onclick="refreshDashboard()">
+                🔄 Refresh Dashboard
+            </button>
+        </div>
+        
+        <div class="last-updated" id="lastUpdated">
+            Last updated: <span id="updateTime"><%= new Date().toLocaleString() %></span>
+        </div>
+    </div>
+    
+    <script>
+        // Refresh dashboard function
+        function refreshDashboard() {
+            const refreshBtn = document.querySelector('.refresh-btn');
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '⏳ Refreshing...';
+            
+            // Force reload without cache
+            window.location.reload(true);
+        }
+        
+        // Auto-refresh dashboard every 5 minutes
+        setInterval(() => {
+            console.log('Auto-refreshing dashboard...');
+            document.getElementById('updateTime').textContent = new Date().toLocaleString();
+            // Uncomment the next line if you want automatic refresh
+            // window.location.reload(true);
+        }, 300000); // 5 minutes
+        
+        // Update timestamp on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('updateTime').textContent = new Date().toLocaleString();
+            
+            // Show success message if coming from a successful action
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('updated') === 'true') {
+                const successDiv = document.createElement('div');
+                successDiv.className = 'success-message';
+                successDiv.innerHTML = '✅ Dashboard updated successfully!';
+                document.querySelector('.container').insertBefore(successDiv, document.querySelector('.stats'));
+                
+                // Remove success message after 3 seconds
+                setTimeout(() => {
+                    successDiv.remove();
+                }, 3000);
+                
+                // Clean up URL
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+        });
+        
+        // Handle network errors gracefully
+        window.addEventListener('online', function() {
+            console.log('Connection restored');
+            const errorDivs = document.querySelectorAll('.error');
+            errorDivs.forEach(div => {
+                if (div.textContent.includes('Network') || div.textContent.includes('connection')) {
+                    div.remove();
+                }
+            });
+        });
+        
+        window.addEventListener('offline', function() {
+            console.log('Connection lost');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.innerHTML = '⚠️ Network connection lost. Dashboard data may be outdated.';
+            document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.stats'));
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Take Attendance - <%= classInfo.class_name %></title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: #b85450;
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav-left h1 {
+            font-size: 24px;
+            color: white;
+        }
+        
+        .nav-left p {
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        .nav-right a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 5px;
+            transition: all 0.3s;
+            margin-left: 10px;
+        }
+        
+        .nav-right a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .class-header {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .class-title {
+            background: #b85450;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: inline-block;
+        }
+        
+        .attendance-date {
+            color: #666;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .attendance-controls {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .bulk-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+        
+        .btn:disabled {
+            background: #6c757d;
+            color: #adb5bd;
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.6;
+        }
+        
+        .btn:disabled:hover {
+            transform: none;
+            opacity: 0.6;
+        }
+        
+        .attendance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .student-card {
+            background: #e8e8e8;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+        
+        .student-card.present {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+        
+        .student-card.absent {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .student-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        
+        .student-header {
+            background: #b85450;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        .roll-number {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .student-name {
+            text-align: center;
+            font-size: 16px;
+            color: #b85450;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        
+        .attendance-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .attendance-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-width: 50px;
+        }
+        
+        .present-btn {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .present-btn.active {
+            background: #28a745;
+            transform: scale(1.1);
+        }
+        
+        .absent-btn {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .absent-btn.active {
+            background: #dc3545;
+            transform: scale(1.1);
+        }
+        
+        .attendance-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .attendance-btn:disabled {
+            background: #6c757d;
+            color: #adb5bd;
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.6;
+        }
+        
+        .attendance-btn:disabled:hover {
+            transform: none;
+            opacity: 0.6;
+        }
+        
+        .status-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: none;
+        }
+        
+        .student-card.present .status-indicator {
+            display: block;
+            background: #28a745;
+        }
+        
+        .student-card.absent .status-indicator {
+            display: block;
+            background: #dc3545;
+        }
+        
+        .summary {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            text-align: center;
+        }
+        
+        .summary-item {
+            padding: 10px;
+        }
+        
+        .summary-number {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .summary-label {
+            color: #666;
+        }
+        
+        .total { color: #007bff; }
+        .present-count { color: #28a745; }
+        .absent-count { color: #dc3545; }
+        .pending { color: #ffc107; }
+        
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .period-info-section {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .current-period-badge {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+            animation: pulse-badge 2s infinite;
+        }
+        
+        .upcoming-period-badge {
+            background: linear-gradient(135deg, #ffc107, #fd7e14);
+            color: #333;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        .no-period-badge {
+            background: linear-gradient(135deg, #6c757d, #495057);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        @keyframes pulse-badge {
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+        
+        .period-details {
+            flex-grow: 1;
+            color: #333;
+        }
+        
+        .period-details strong {
+            color: #b85450;
+            font-size: 16px;
+        }
+        
+        .subject-code {
+            background: #b85450;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .bookmark-section {
+            background: #fff3cd;
+            border: 2px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .festival-today {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+        
+        .bookmark-icon {
+            font-size: 24px;
+        }
+        
+        .bookmark-content {
+            flex-grow: 1;
+        }
+        
+        .bookmark-title {
+            font-weight: bold;
+            color: #856404;
+            margin-bottom: 5px;
+        }
+        
+        .festival-today .bookmark-title {
+            color: #155724;
+        }
+        
+        .bookmark-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .bookmark-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .bookmark-btn.primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .bookmark-btn.secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .bookmark-btn.success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .bookmark-btn.danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .bookmark-btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="nav-container">
+            <div class="nav-left">
+                <h1><%= classInfo.class_name %></h1>
+                <p>Take Attendance - <%= date %></p>
+            </div>
+            <div class="nav-right">
+                <a href="/teacher/dashboard">← Back to Dashboard</a>
+                <a href="/teacher/reports/<%= classInfo.id %>">📊 View Reports</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="class-header">
+            <div class="class-title"><%= classInfo.class_name %></div>
+            <div class="attendance-date">📅 Date: <%= new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) %></div>
+            
+            <!-- Period Information -->
+            <% if (currentPeriodInfo) { %>
+                <div class="period-info-section">
+                    <div class="current-period-badge">
+                        <i class="fas fa-play-circle"></i> CURRENT PERIOD
+                    </div>
+                    <div class="period-details">
+                        <strong>Period <%= currentPeriodInfo.period_number %>: <%= currentPeriodInfo.subject_name %></strong>
+                        <br>
+                        <span class="subject-code"><%= currentPeriodInfo.subject_code %></span> • 
+                        <%= currentPeriodInfo.start_time.slice(0,5) %> - <%= currentPeriodInfo.end_time.slice(0,5) %>
+                    </div>
+                </div>
+            <% } else if (upcomingPeriod) { %>
+                <div class="period-info-section">
+                    <div class="upcoming-period-badge">
+                        <i class="fas fa-clock"></i> UPCOMING PERIOD
+                    </div>
+                    <div class="period-details">
+                        <strong>Period <%= upcomingPeriod.period_number %>: <%= upcomingPeriod.subject_name %></strong>
+                        <br>
+                        <span class="subject-code"><%= upcomingPeriod.subject_code %></span> • 
+                        <%= upcomingPeriod.start_time.slice(0,5) %> - <%= upcomingPeriod.end_time.slice(0,5) %>
+                    </div>
+                </div>
+            <% } else { %>
+                <div class="period-info-section">
+                    <div class="no-period-badge">
+                        <i class="fas fa-info-circle"></i> NO SCHEDULED PERIOD
+                    </div>
+                    <div class="period-details">
+                        You don't have a scheduled period for this class right now
+                        <br>
+                        <small>(<%= currentDayName %>, <%= currentTime %>)</small>
+                    </div>
+                </div>
+            <% } %>
+            
+            <!-- Bookmark/Festival Section -->
+            <div class="bookmark-section" id="bookmarkSection">
+                <div class="bookmark-icon">📖</div>
+                <div class="bookmark-content">
+                    <div class="bookmark-title" id="bookmarkTitle">Mark today as festival/holiday</div>
+                    <div class="bookmark-description" id="bookmarkDescription">Click to bookmark this day for future reference</div>
+                </div>
+                <div class="bookmark-actions">
+                    <button class="bookmark-btn primary" id="bookmarkBtn" onclick="toggleTodayBookmark()">Mark as Festival</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="attendance-controls">
+            <div class="bulk-actions">
+                <% if (currentPeriodInfo) { %>
+                    <button class="btn btn-success" onclick="markAllPresent()">Mark All Present</button>
+                    <button class="btn btn-danger" onclick="markAllAbsent()">Mark All Absent</button>
+                <% } else { %>
+                    <button class="btn btn-success" disabled title="No active period">Mark All Present</button>
+                    <button class="btn btn-danger" disabled title="No active period">Mark All Absent</button>
+                <% } %>
+            </div>
+            <div class="attendance-info">
+                <% if (currentPeriodInfo) { %>
+                    <span id="marked-count">0</span> / <%= students.length %> students marked
+                <% } else { %>
+                    <span style="color: #999;">No active period - attendance cannot be marked</span>
+                <% } %>
+            </div>
+        </div>
+        
+        <div class="attendance-grid">
+            <% students.forEach(student => { %>
+                <div class="student-card <%= student.status ? (student.status === 'P' ? 'present' : 'absent') : '' %>" 
+                     data-student-id="<%= student.id %>" 
+                     data-roll-no="<%= student.roll_no %>">
+                    <div class="student-header">sir cr reddey clg</div>
+                    <div class="roll-number">no.<%= student.roll_no %></div>
+                    <div class="student-name"><%= student.student_name %></div>
+                    <div class="attendance-buttons">
+                        <% if (currentPeriodInfo) { %>
+                            <button class="attendance-btn present-btn <%= student.status === 'P' ? 'active' : '' %>" 
+                                    onclick="markAttendance(<%= student.id %>, 'P', this)">
+                                P
+                            </button>
+                            <button class="attendance-btn absent-btn <%= student.status === 'A' ? 'active' : '' %>" 
+                                    onclick="markAttendance(<%= student.id %>, 'A', this)">
+                                A
+                            </button>
+                        <% } else { %>
+                            <button class="attendance-btn present-btn" disabled title="No active period">
+                                P
+                            </button>
+                            <button class="attendance-btn absent-btn" disabled title="No active period">
+                                A
+                            </button>
+                        <% } %>
+                    </div>
+                    <div class="status-indicator"></div>
+                </div>
+            <% }); %>
+        </div>
+        
+        <div class="summary">
+            <div class="summary-item">
+                <div class="summary-number total" id="total-students"><%= students.length %></div>
+                <div class="summary-label">Total Students</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-number present-count" id="present-count">
+                    <%= students.filter(s => s.status === 'P').length %>
+                </div>
+                <div class="summary-label">Present</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-number absent-count" id="absent-count">
+                    <%= students.filter(s => s.status === 'A').length %>
+                </div>
+                <div class="summary-label">Absent</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-number pending" id="pending-count">
+                    <%= students.filter(s => !s.status).length %>
+                </div>
+                <div class="summary-label">Pending</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let todayBookmark = null;
+        
+        // Load today's bookmark on page load
+        async function loadTodayBookmark() {
+            try {
+                const today = '<%= date %>';
+                const response = await fetch(`/api/bookmarks/<%= classInfo.id %>?startDate=${today}&endDate=${today}`);
+                const result = await response.json();
+                
+                if (result.success && result.bookmarks.length > 0) {
+                    todayBookmark = result.bookmarks[0];
+                    updateBookmarkDisplay();
+                }
+            } catch (error) {
+                console.error('Error loading today\'s bookmark:', error);
+            }
+        }
+        
+        function updateBookmarkDisplay() {
+            const bookmarkSection = document.getElementById('bookmarkSection');
+            const bookmarkTitle = document.getElementById('bookmarkTitle');
+            const bookmarkDescription = document.getElementById('bookmarkDescription');
+            const bookmarkBtn = document.getElementById('bookmarkBtn');
+            
+            if (todayBookmark) {
+                bookmarkSection.classList.add('festival-today');
+                bookmarkTitle.textContent = `🎉 ${todayBookmark.title}`;
+                bookmarkDescription.textContent = todayBookmark.description || 'This day is marked as a festival/holiday';
+                bookmarkBtn.textContent = 'Remove Festival';
+                bookmarkBtn.className = 'bookmark-btn danger';
+            } else {
+                bookmarkSection.classList.remove('festival-today');
+                bookmarkTitle.textContent = 'Mark today as festival/holiday';
+                bookmarkDescription.textContent = 'Click to bookmark this day for future reference';
+                bookmarkBtn.textContent = 'Mark as Festival';
+                bookmarkBtn.className = 'bookmark-btn primary';
+            }
+        }
+        
+        async function toggleTodayBookmark() {
+            const today = '<%= date %>';
+            
+            if (todayBookmark) {
+                // Remove bookmark
+                if (!confirm('Are you sure you want to remove this festival marking?')) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/api/bookmarks/${todayBookmark.id}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        todayBookmark = null;
+                        updateBookmarkDisplay();
+                        alert('Festival marking removed successfully!');
+                    } else {
+                        alert('Error removing festival: ' + result.error);
+                    }
+                } catch (error) {
+                    alert('Error removing festival: ' + error.message);
+                }
+            } else {
+                // Add bookmark
+                const title = prompt('Enter festival/holiday name:', '');
+                if (title === null || title.trim() === '') {
+                    return;
+                }
+                
+                const description = prompt('Enter description (optional):', '');
+                
+                try {
+                    const response = await fetch('/api/bookmarks', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            date: today,
+                            title: title,
+                            description: description || '',
+                            classId: <%= classInfo.id %>
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        todayBookmark = result.bookmark;
+                        updateBookmarkDisplay();
+                        alert('Festival marked successfully!');
+                    } else {
+                        alert('Error marking festival: ' + result.error);
+                    }
+                } catch (error) {
+                    alert('Error marking festival: ' + error.message);
+                }
+            }
+        }
+        
+        function markAttendance(studentId, status, button) {
+            const card = button.closest('.student-card');
+            const presentBtn = card.querySelector('.present-btn');
+            const absentBtn = card.querySelector('.absent-btn');
+            
+            // Show loading state
+            card.classList.add('loading');
+            
+            fetch('/teacher/mark-attendance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    studentId: studentId,
+                    classId: <%= classInfo.id %>,
+                    status: status,
+                    date: '<%= date %>'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                card.classList.remove('loading');
+                
+                if (data.success) {
+                    // Update button states
+                    presentBtn.classList.remove('active');
+                    absentBtn.classList.remove('active');
+                    button.classList.add('active');
+                    
+                    // Update card appearance
+                    card.classList.remove('present', 'absent');
+                    if (status === 'P') {
+                        card.classList.add('present');
+                    } else {
+                        card.classList.add('absent');
+                    }
+                    
+                    updateCounts();
+                } else {
+                    alert('Failed to mark attendance: ' + data.error);
+                }
+            })
+            .catch(error => {
+                card.classList.remove('loading');
+                alert('Error: ' + error.message);
+            });
+        }
+        
+        function markAllPresent() {
+            const cards = document.querySelectorAll('.student-card');
+            cards.forEach(card => {
+                const presentBtn = card.querySelector('.present-btn');
+                const studentId = card.dataset.studentId;
+                markAttendance(studentId, 'P', presentBtn);
+            });
+        }
+        
+        function markAllAbsent() {
+            const cards = document.querySelectorAll('.student-card');
+            cards.forEach(card => {
+                const absentBtn = card.querySelector('.absent-btn');
+                const studentId = card.dataset.studentId;
+                markAttendance(studentId, 'A', absentBtn);
+            });
+        }
+        
+        function updateCounts() {
+            const presentCount = document.querySelectorAll('.student-card.present').length;
+            const absentCount = document.querySelectorAll('.student-card.absent').length;
+            const totalCount = document.querySelectorAll('.student-card').length;
+            const pendingCount = totalCount - presentCount - absentCount;
+            
+            document.getElementById('present-count').textContent = presentCount;
+            document.getElementById('absent-count').textContent = absentCount;
+            document.getElementById('pending-count').textContent = pendingCount;
+            document.getElementById('marked-count').textContent = presentCount + absentCount;
+        }
+        
+        // Initialize counts and load bookmark on page load
+        updateCounts();
+        loadTodayBookmark();
+    </script>
+</body>
+</html>

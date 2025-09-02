@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timetable Management - IT Department</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .page-header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 30px 0;
+            margin-bottom: 30px;
+        }
+        
+        .class-selector {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .timetable-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        
+        .day-tabs .nav-link {
+            color: #495057;
+            font-weight: 500;
+            padding: 12px 20px;
+            border: 1px solid #dee2e6;
+            margin-right: 5px;
+            border-radius: 8px 8px 0 0;
+            background-color: #f8f9fa;
+        }
+        
+        .day-tabs .nav-link.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .periods-table {
+            margin-top: 20px;
+        }
+        
+        .period-row {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        
+        .period-row.is-break {
+            background: linear-gradient(135deg, #ffeaa7, #fab1a0);
+            border-color: #e17055;
+        }
+        
+        .period-number {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 35px;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        
+        .period-number.break {
+            background: #e17055;
+        }
+        
+        .period-content {
+            display: inline-block;
+            vertical-align: top;
+            width: calc(100% - 100px);
+        }
+        
+        .period-actions {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .add-period-btn {
+            background: linear-gradient(135deg, #00b894, #00a085);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .add-period-btn:hover {
+            background: linear-gradient(135deg, #00a085, #00b894);
+            color: white;
+        }
+        
+        .form-control:focus,
+        .form-select:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+        }
+        
+        .alert {
+            border: none;
+            border-radius: 10px;
+        }
+        
+        .btn-group-sm > .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            border-radius: 0.375rem;
+        }
+        
+        .no-periods {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .no-periods i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        .selected-class-info {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h1><i class="fas fa-calendar-alt me-3"></i>Timetable Management</h1>
+                    <p class="mb-0">Create and manage class schedules</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <a href="/admin/dashboard" class="btn btn-light btn-lg">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Success/Error Messages -->
+        <% if (error) { %>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <%= error %>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <% } %>
+
+        <!-- Class Selection -->
+        <div class="class-selector">
+            <h4 class="mb-3"><i class="fas fa-school me-2"></i>Select Class</h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <select class="form-select form-select-lg" id="classSelector">
+                        <option value="">Choose a class to manage timetable...</option>
+                        <% classes.forEach(cls => { %>
+                            <option value="<%= cls.id %>">
+                                <%= cls.class_name %> 
+                                (<%= cls.student_count || 0 %> students)
+                            </option>
+                        <% }); %>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <button class="btn btn-primary btn-lg" id="loadTimetable" disabled>
+                        <i class="fas fa-search me-2"></i>Load Timetable
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Selected Class Info (Hidden by default) -->
+        <div class="selected-class-info" id="selectedClassInfo" style="display: none;">
+            <h5 class="mb-2" id="selectedClassName">Class Name</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <small><i class="fas fa-users me-2"></i>Students: <span id="selectedClassStudents">0</span></small>
+                </div>
+                <div class="col-md-6">
+                    <small><i class="fas fa-calendar me-2"></i>Managing timetable for this class</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timetable Management (Hidden by default) -->
+        <div class="timetable-container" id="timetableContainer" style="display: none;">
+            <!-- Day Tabs -->
+            <ul class="nav nav-tabs day-tabs" id="dayTabs">
+                <li class="nav-item">
+                    <a class="nav-link active" data-bs-toggle="tab" href="#day1">
+                        <i class="fas fa-calendar-day me-1"></i>Monday
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#day2">
+                        <i class="fas fa-calendar-day me-1"></i>Tuesday
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#day3">
+                        <i class="fas fa-calendar-day me-1"></i>Wednesday
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#day4">
+                        <i class="fas fa-calendar-day me-1"></i>Thursday
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#day5">
+                        <i class="fas fa-calendar-day me-1"></i>Friday
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#day6">
+                        <i class="fas fa-calendar-day me-1"></i>Saturday
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Day Content -->
+            <div class="tab-content" id="dayTabsContent">
+                <!-- Monday -->
+                <div class="tab-pane fade show active" id="day1">
+                    <button class="btn add-period-btn" onclick="showAddPeriodModal(1)">
+                        <i class="fas fa-plus me-2"></i>Add Period
+                    </button>
+                    <div class="periods-container" id="periods-day1">
+                        <div class="no-periods">
+                            <i class="fas fa-clock"></i>
+                            <h5>No periods scheduled</h5>
+                            <p>Click "Add Period" to create the first period for Monday</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tuesday -->
+                <div class="tab-pane fade" id="day2">
+                    <button class="btn add-period-btn" onclick="showAddPeriodModal(2)">
+                        <i class="fas fa-plus me-2"></i>Add Period
+                    </button>
+                    <div class="periods-container" id="periods-day2">
+                        <div class="no-periods">
+                            <i class="fas fa-clock"></i>
+                            <h5>No periods scheduled</h5>
+                            <p>Click "Add Period" to create the first period for Tuesday</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wednesday -->
+                <div class="tab-pane fade" id="day3">
+                    <button class="btn add-period-btn" onclick="showAddPeriodModal(3)">
+                        <i class="fas fa-plus me-2"></i>Add Period
+                    </button>
+                    <div class="periods-container" id="periods-day3">
+                        <div class="no-periods">
+                            <i class="fas fa-clock"></i>
+                            <h5>No periods scheduled</h5>
+                            <p>Click "Add Period" to create the first period for Wednesday</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thursday -->
+                <div class="tab-pane fade" id="day4">
+                    <button class="btn add-period-btn" onclick="showAddPeriodModal(4)">
+                        <i class="fas fa-plus me-2"></i>Add Period
+                    </button>
+                    <div class="periods-container" id="periods-day4">
+                        <div class="no-periods">
+                            <i class="fas fa-clock"></i>
+                            <h5>No periods scheduled</h5>
+                            <p>Click "Add Period" to create the first period for Thursday</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Friday -->
+                <div class="tab-pane fade" id="day5">
+                    <button class="btn add-period-btn" onclick="showAddPeriodModal(5)">
+                        <i class="fas fa-plus me-2"></i>Add Period
+                    </button>
+                    <div class="periods-container" id="periods-day5">
+                        <div class="no-periods">
+                            <i class="fas fa-clock"></i>
+                            <h5>No periods scheduled</h5>
+                            <p>Click "Add Period" to create the first period for Friday</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Saturday -->
+                <div class="tab-pane fade" id="day6">
+                    <button class="btn add-period-btn" onclick="showAddPeriodModal(6)">
+                        <i class="fas fa-plus me-2"></i>Add Period
+                    </button>
+                    <div class="periods-container" id="periods-day6">
+                        <div class="no-periods">
+                            <i class="fas fa-clock"></i>
+                            <h5>No periods scheduled</h5>
+                            <p>Click "Add Period" to create the first period for Saturday</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Period Modal -->
+    <div class="modal fade" id="periodModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="periodModalTitle">Add Period</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Quick Teacher Info -->
+                    <div id="teacherInfo" class="alert alert-info" style="display: none;">
+                        <strong>Teacher Schedule Conflict Check:</strong>
+                        <div id="teacherScheduleInfo"></div>
+                    </div>
+                    
+                    <form id="periodForm">
+                        <input type="hidden" id="periodId" name="period_id">
+                        <input type="hidden" id="modalClassId" name="class_id">
+                        <input type="hidden" id="modalDayOfWeek" name="day_of_week">
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="periodNumber" class="form-label">Period Number</label>
+                                <input type="number" class="form-control" id="periodNumber" 
+                                       name="period_number" min="1" max="10" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="isBreak" class="form-label">Period Type</label>
+                                <select class="form-select" id="isBreak" name="is_break" onchange="toggleBreakFields()">
+                                    <option value="false">Regular Class</option>
+                                    <option value="true">Break Time</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <label for="startTime" class="form-label">Start Time</label>
+                                <input type="time" class="form-control" id="startTime" 
+                                       name="start_time" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="endTime" class="form-label">End Time</label>
+                                <input type="time" class="form-control" id="endTime" 
+                                       name="end_time" required>
+                            </div>
+                        </div>
+
+                        <div id="regularPeriodFields">
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <label for="subjectId" class="form-label">Subject</label>
+                                    <select class="form-select" id="subjectId" name="subject_id">
+                                        <option value="">Select Subject</option>
+                                        <% subjects.forEach(subject => { %>
+                                            <option value="<%= subject.id %>">
+                                                <%= subject.subject_name %> 
+                                                (<%= subject.subject_code %>)
+                                            </option>
+                                        <% }); %>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="teacherId" class="form-label">Teacher</label>
+                                    <select class="form-select" id="teacherId" name="teacher_id" onchange="checkTeacherSchedule()">
+                                        <option value="">Select Teacher</option>
+                                        <% teachers.forEach(teacher => { %>
+                                            <option value="<%= teacher.id %>">
+                                                <%= teacher.name %>
+                                            </option>
+                                        <% }); %>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="breakPeriodFields" style="display: none;">
+                            <div class="mt-3">
+                                <label for="breakName" class="form-label">Break Name</label>
+                                <input type="text" class="form-control" id="breakName" 
+                                       name="break_name" placeholder="e.g., Lunch Break, Tea Break">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="savePeriod()">
+                        <i class="fas fa-save me-2"></i>Save Period
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentClassId = null;
+        let currentTimetable = {};
+        const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        // Enable load button when class is selected
+        document.getElementById('classSelector').addEventListener('change', function() {
+            const loadBtn = document.getElementById('loadTimetable');
+            loadBtn.disabled = !this.value;
+            
+            if (!this.value) {
+                // Hide timetable container if no class selected
+                document.getElementById('timetableContainer').style.display = 'none';
+                document.getElementById('selectedClassInfo').style.display = 'none';
+            }
+        });
+
+        // Load timetable for selected class
+        document.getElementById('loadTimetable').addEventListener('click', function() {
+            const classId = document.getElementById('classSelector').value;
+            const selectedOption = document.querySelector(`#classSelector option[value="${classId}"]`);
+            
+            if (classId && selectedOption) {
+                currentClassId = classId;
+                
+                // Update selected class info
+                const className = selectedOption.textContent.trim();
+                const studentMatch = className.match(/\((\d+) students?\)/);
+                const studentCount = studentMatch ? studentMatch[1] : '0';
+                
+                document.getElementById('selectedClassName').textContent = className.replace(/\s*\(\d+[^)]*\)/, '');
+                document.getElementById('selectedClassStudents').textContent = studentCount;
+                document.getElementById('selectedClassInfo').style.display = 'block';
+                
+                // Load timetable data
+                loadTimetable(classId);
+            }
+        });
+
+        async function loadTimetable(classId) {
+            try {
+                showLoading();
+                
+                const response = await fetch(`/api/timetable/${classId}`);
+                const data = await response.json();
+                
+                hideLoading();
+                
+                if (data.success) {
+                    currentTimetable = data.timetable;
+                    displayTimetable(data.timetable);
+                    document.getElementById('timetableContainer').style.display = 'block';
+                } else {
+                    throw new Error(data.error || 'Failed to load timetable');
+                }
+            } catch (error) {
+                hideLoading();
+                console.error('Error loading timetable:', error);
+                showAlert('Error loading timetable: ' + error.message, 'danger');
+            }
+        }
+
+        function displayTimetable(timetable) {
+            // Clear all day containers
+            for (let day = 1; day <= 6; day++) {
+                const container = document.getElementById(`periods-day${day}`);
+                const dayData = timetable[day];
+                
+                if (dayData && dayData.periods && dayData.periods.length > 0) {
+                    // Sort periods by period number
+                    dayData.periods.sort((a, b) => a.period_number - b.period_number);
+                    
+                    let periodsHtml = '';
+                    dayData.periods.forEach(period => {
+                        periodsHtml += createPeriodHtml(period);
+                    });
+                    
+                    container.innerHTML = periodsHtml;
+                } else {
+                    container.innerHTML = `
+                        <div class="no-periods">
+                            <i class="fas fa-clock"></i>
+                            <h5>No periods scheduled</h5>
+                            <p>Click "Add Period" to create the first period for ${dayNames[day]}</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function createPeriodHtml(period) {
+            const isBreak = period.is_break;
+            const periodClass = isBreak ? 'is-break' : '';
+            const periodNumberClass = isBreak ? 'break' : '';
+            
+            let content = '';
+            if (isBreak) {
+                content = `
+                    <strong>${period.break_name || 'Break'}</strong><br>
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        ${formatTime(period.start_time)} - ${formatTime(period.end_time)}
+                    </small>
+                `;
+            } else {
+                content = `
+                    <strong>${period.subject_name || 'No Subject'}</strong>
+                    ${period.subject_code ? `<span class="badge bg-primary ms-2">${period.subject_code}</span>` : ''}
+                    <br>
+                    <small class="text-muted">
+                        <i class="fas fa-user me-1"></i>${period.teacher_name || 'No Teacher'} |
+                        <i class="fas fa-clock me-1"></i>
+                        ${formatTime(period.start_time)} - ${formatTime(period.end_time)}
+                    </small>
+                `;
+            }
+            
+            return `
+                <div class="period-row ${periodClass}">
+                    <span class="period-number ${periodNumberClass}">${period.period_number}</span>
+                    <div class="period-content">${content}</div>
+                    <div class="period-actions">
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary btn-sm" 
+                                    onclick="editPeriod(${period.id}, ${period.day_of_week}, ${period.period_number})" title="Edit Period">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" 
+                                    onclick="copyPeriod(${period.day_of_week}, ${period.period_number})" title="Copy to Other Days">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" 
+                                    onclick="deletePeriod(${period.id}, ${period.day_of_week})" title="Delete Period">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function formatTime(timeString) {
+            if (!timeString) return '';
+            const [hours, minutes] = timeString.split(':');
+            const hour24 = parseInt(hours);
+            const hour12 = hour24 > 12 ? hour24 - 12 : hour24 === 0 ? 12 : hour24;
+            const ampm = hour24 >= 12 ? 'PM' : 'AM';
+            return `${hour12}:${minutes} ${ampm}`;
+        }
+
+        function showAddPeriodModal(dayOfWeek) {
+            // Reset form
+            document.getElementById('periodForm').reset();
+            document.getElementById('periodId').value = '';
+            document.getElementById('modalClassId').value = currentClassId;
+            document.getElementById('modalDayOfWeek').value = dayOfWeek;
+            
+            // Set next period number
+            const dayPeriods = currentTimetable[dayOfWeek]?.periods || [];
+            const nextPeriodNumber = dayPeriods.length > 0 ? 
+                Math.max(...dayPeriods.map(p => p.period_number)) + 1 : 1;
+            document.getElementById('periodNumber').value = nextPeriodNumber;
+            
+            document.getElementById('periodModalTitle').textContent = `Add Period - ${dayNames[dayOfWeek]}`;
+            toggleBreakFields();
+            
+            const modal = new bootstrap.Modal(document.getElementById('periodModal'));
+            modal.show();
+        }
+
+        function editPeriod(periodId, dayOfWeek, periodNumber) {
+            const dayPeriods = currentTimetable[dayOfWeek]?.periods || [];
+            const period = dayPeriods.find(p => p.id === periodId);
+            
+            if (period) {
+                // Populate form with period data
+                document.getElementById('periodId').value = period.id;
+                document.getElementById('modalClassId').value = currentClassId;
+                document.getElementById('modalDayOfWeek').value = dayOfWeek;
+                document.getElementById('periodNumber').value = period.period_number;
+                document.getElementById('startTime').value = period.start_time;
+                document.getElementById('endTime').value = period.end_time;
+                document.getElementById('isBreak').value = period.is_break ? 'true' : 'false';
+                
+                if (period.is_break) {
+                    document.getElementById('breakName').value = period.break_name || '';
+                } else {
+                    document.getElementById('subjectId').value = period.subject_id || '';
+                    document.getElementById('teacherId').value = period.teacher_id || '';
+                }
+                
+                document.getElementById('periodModalTitle').textContent = `Edit Period ${periodNumber} - ${dayNames[dayOfWeek]}`;
+                toggleBreakFields();
+                
+                const modal = new bootstrap.Modal(document.getElementById('periodModal'));
+                modal.show();
+            }
+        }
+
+        function toggleBreakFields() {
+            const isBreak = document.getElementById('isBreak').value === 'true';
+            const regularFields = document.getElementById('regularPeriodFields');
+            const breakFields = document.getElementById('breakPeriodFields');
+            
+            if (isBreak) {
+                regularFields.style.display = 'none';
+                breakFields.style.display = 'block';
+                // Clear regular field requirements
+                document.getElementById('subjectId').removeAttribute('required');
+                document.getElementById('teacherId').removeAttribute('required');
+            } else {
+                regularFields.style.display = 'block';
+                breakFields.style.display = 'none';
+            }
+        }
+
+        async function savePeriod() {
+            const form = document.getElementById('periodForm');
+            const formData = new FormData(form);
+            
+            // Validate required fields
+            if (!formData.get('period_number') || !formData.get('start_time') || !formData.get('end_time')) {
+                showAlert('Please fill in all required fields', 'warning');
+                return;
+            }
+            
+            // Convert FormData to JSON
+            const periodData = {};
+            for (let [key, value] of formData.entries()) {
+                periodData[key] = value;
+            }
+            
+            // Convert boolean fields
+            periodData.is_break = periodData.is_break === 'true';
+            
+            try {
+                const response = await fetch('/api/timetable/period', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(periodData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('periodModal'));
+                    modal.hide();
+                    
+                    // Reload timetable
+                    await loadTimetable(currentClassId);
+                    
+                    showAlert('Period saved successfully!', 'success');
+                } else {
+                    throw new Error(result.error || 'Failed to save period');
+                }
+            } catch (error) {
+                console.error('Error saving period:', error);
+                showAlert('Error saving period: ' + error.message, 'danger');
+            }
+        }
+
+        async function deletePeriod(periodId, dayOfWeek) {
+            if (!confirm('Are you sure you want to delete this period?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/timetable/period/${periodId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Reload timetable
+                    await loadTimetable(currentClassId);
+                    showAlert('Period deleted successfully!', 'success');
+                } else {
+                    throw new Error(result.error || 'Failed to delete period');
+                }
+            } catch (error) {
+                console.error('Error deleting period:', error);
+                showAlert('Error deleting period: ' + error.message, 'danger');
+            }
+        }
+
+        function showAlert(message, type) {
+            // Remove existing alerts
+            const existingAlerts = document.querySelectorAll('.alert:not(.alert-dismissible)');
+            existingAlerts.forEach(alert => alert.remove());
+            
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show mt-3" role="alert">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            document.querySelector('.container').insertAdjacentHTML('afterbegin', alertHtml);
+        }
+
+        // Check teacher schedule conflicts
+        async function checkTeacherSchedule() {
+            const teacherId = document.getElementById('teacherId').value;
+            const dayOfWeek = document.getElementById('modalDayOfWeek').value;
+            const startTime = document.getElementById('startTime').value;
+            const endTime = document.getElementById('endTime').value;
+            const teacherInfo = document.getElementById('teacherInfo');
+            
+            if (!teacherId || !dayOfWeek || !startTime || !endTime) {
+                teacherInfo.style.display = 'none';
+                return;
+            }
+            
+            try {
+                // Check for conflicts (simplified - you can enhance this with an API call)
+                const teacherName = document.querySelector(`#teacherId option[value="${teacherId}"]`).textContent;
+                const dayName = dayNames[dayOfWeek];
+                
+                document.getElementById('teacherScheduleInfo').innerHTML = `
+                    <small>
+                        Assigning <strong>${teacherName}</strong> for ${dayName} ${startTime} - ${endTime}<br>
+                        <em>Note: Schedule conflict checking can be enhanced with server-side validation.</em>
+                    </small>
+                `;
+                
+                teacherInfo.style.display = 'block';
+            } catch (error) {
+                console.error('Error checking teacher schedule:', error);
+            }
+        }
+        
+        // Copy period to other days
+        function copyPeriod(dayOfWeek, periodNumber) {
+            const dayPeriods = currentTimetable[dayOfWeek]?.periods || [];
+            const period = dayPeriods.find(p => p.period_number === periodNumber);
+            
+            if (!period) {
+                showAlert('Period not found', 'danger');
+                return;
+            }
+            
+            const sourceDayName = dayNames[dayOfWeek];
+            const availableDays = [];
+            
+            for (let i = 1; i <= 6; i++) {
+                if (i !== dayOfWeek) {
+                    availableDays.push({ num: i, name: dayNames[i] });
+                }
+            }
+            
+            let dayOptions = availableDays.map(day => 
+                `<label><input type="checkbox" value="${day.num}" class="me-2">${day.name}</label><br>`
+            ).join('');
+            
+            const modalHtml = `
+                <div class="modal fade" id="copyPeriodModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Copy Period to Other Days</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p>Copy <strong>Period ${periodNumber}</strong> from <strong>${sourceDayName}</strong> to:</p>
+                                <div class="mb-3">
+                                    ${dayOptions}
+                                </div>
+                                <div class="alert alert-warning">
+                                    <small><i class="fas fa-exclamation-triangle me-2"></i>
+                                    This will create the same period with the same teacher and subject on selected days.</small>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" onclick="executeCopyPeriod(${dayOfWeek}, ${periodNumber})">
+                                    <i class="fas fa-copy me-2"></i>Copy Period
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById('copyPeriodModal'));
+            modal.show();
+            
+            // Clean up modal when closed
+            document.getElementById('copyPeriodModal').addEventListener('hidden.bs.modal', function() {
+                this.remove();
+            });
+        }
+        
+        async function executeCopyPeriod(sourceDayOfWeek, periodNumber) {
+            const selectedDays = Array.from(document.querySelectorAll('#copyPeriodModal input[type="checkbox"]:checked'))
+                .map(cb => parseInt(cb.value));
+            
+            if (selectedDays.length === 0) {
+                showAlert('Please select at least one day', 'warning');
+                return;
+            }
+            
+            const sourcePeriod = currentTimetable[sourceDayOfWeek]?.periods.find(p => p.period_number === periodNumber);
+            if (!sourcePeriod) {
+                showAlert('Source period not found', 'danger');
+                return;
+            }
+            
+            try {
+                for (const dayOfWeek of selectedDays) {
+                    const periodData = {
+                        class_id: currentClassId,
+                        day_of_week: dayOfWeek,
+                        period_number: periodNumber,
+                        start_time: sourcePeriod.start_time,
+                        end_time: sourcePeriod.end_time,
+                        subject_id: sourcePeriod.subject_id,
+                        teacher_id: sourcePeriod.teacher_id,
+                        is_break: sourcePeriod.is_break,
+                        break_name: sourcePeriod.break_name
+                    };
+                    
+                    const response = await fetch('/api/timetable/period', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(periodData)
+                    });
+                    
+                    const result = await response.json();
+                    if (!result.success) {
+                        throw new Error(`Failed to copy to ${dayNames[dayOfWeek]}: ${result.error}`);
+                    }
+                }
+                
+                // Close modal and reload timetable
+                const modal = bootstrap.Modal.getInstance(document.getElementById('copyPeriodModal'));
+                modal.hide();
+                
+                await loadTimetable(currentClassId);
+                showAlert(`Period copied to ${selectedDays.length} day(s) successfully!`, 'success');
+                
+            } catch (error) {
+                console.error('Error copying period:', error);
+                showAlert('Error copying period: ' + error.message, 'danger');
+            }
+        }
+
+        function showLoading() {
+            // You can implement a loading spinner here
+            console.log('Loading...');
+        }
+
+        function hideLoading() {
+            // Hide loading spinner
+            console.log('Loading complete');
+        }
+    </script>
+</body>
+</html>
