@@ -52,11 +52,6 @@ A comprehensive web-based attendance management system designed for the IT Depar
 
 ## Default Login Credentials
 
-### Teacher Account
-- **Username**: `teacher1`
-- **Password**: `password`
-- **Role**: Teacher (Sir CR Reddey)
-
 ### Student Accounts
 - Student login functionality is prepared but accounts need to be created through admin interface
 
