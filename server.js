@@ -1,7 +1,7 @@
 require('dotenv').config();
 // Force server timezone to IST if not provided by environment
 process.env.TZ = process.env.TZ || 'Asia/Kolkata';
-//const TIME_OFFSET_MINUTES = parseInt(process.env.TIME_OFFSET_MINUTES || '0', 10) || 0;
+const TIME_OFFSET_MINUTES = parseInt(process.env.TIME_OFFSET_MINUTES || '0', 10) || 0;
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
@@ -61,19 +61,33 @@ const formatDateLocal = (dateInput) => {
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
-// Compute time in IST explicitly to avoid server timezone differences (e.g., Vercel UTC)
-const getNowIST = () => new Date(Date.now() + (5.5 * 60 * 60 * 1000) + (TIME_OFFSET_MINUTES* 60 * 1000)); // UTC+5:30 + manual offset
+// Better timezone handling for consistent time across environments
+const getNowIST = () => {
+    // Get current UTC time and convert to IST
+    const now = new Date();
+    const utcTime = now.getTime();
+    const istTime = utcTime + (5.5 * 60 * 60 * 1000) + (TIME_OFFSET_MINUTES * 60 * 1000);
+    return new Date(istTime);
+};
 
 const getCurrentDayOfWeek = () => {
-    const ist = getNowIST();
-    const dayOfWeek = ist.getUTCDay(); // 0 = Sunday
+    // Get current day in IST
+    const now = new Date();
+    const utcTime = now.getTime();
+    const istTime = utcTime + (5.5 * 60 * 60 * 1000) + (TIME_OFFSET_MINUTES * 60 * 1000);
+    const istDate = new Date(istTime);
+    const dayOfWeek = istDate.getUTCDay(); // Use UTC day since we're working with UTC+5.5
     return dayOfWeek === 0 ? 7 : dayOfWeek;
 };
 
 const getCurrentTime = () => {
-    const ist = getNowIST();
-    const hours = String(ist.getUTCHours()).padStart(2, '0');
-    const minutes = String(ist.getUTCMinutes()).padStart(2, '0');
+    // Get current time in IST
+    const now = new Date();
+    const utcTime = now.getTime();
+    const istTime = utcTime + (5.5 * 60 * 60 * 1000) + (TIME_OFFSET_MINUTES * 60 * 1000);
+    const istDate = new Date(istTime);
+    const hours = String(istDate.getUTCHours()).padStart(2, '0');
+    const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
 };
 
@@ -85,9 +99,12 @@ app.get('/debug/time', (req, res) => {
         tzEnv: process.env.TZ,
         timeOffsetMinutes: TIME_OFFSET_MINUTES,
         utcNow: now.toISOString(),
+        utcNowLocal: now.toLocaleString(),
         computedISTIso: nowIST.toISOString(),
+        computedISTLocal: nowIST.toLocaleString(),
         computedDayOfWeek: getCurrentDayOfWeek(),
-        computedTimeHHMM: getCurrentTime()
+        computedTimeHHMM: getCurrentTime(),
+        serverTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
 });
 
@@ -355,7 +372,7 @@ app.get('/teacher/dashboard', requireTeacher, async (req, res) => {
             classes: currentClasses.length > 0 ? currentClasses : allClasses,
             currentClasses,
             allClasses: allClasses.length > 0 ? allClasses : [],
-            allAssignedClasses,
+            allAssignedClasses: allAssignedClasses.length > 0 ? allAssignedClasses : [],
             currentDayName,
             currentTime,
             isCurrentPeriod: currentClasses.length > 0,
@@ -368,6 +385,7 @@ app.get('/teacher/dashboard', requireTeacher, async (req, res) => {
             classes: [], 
             currentClasses: [],
             allClasses: [],
+            allAssignedClasses: [],
             currentDayName: '',
             currentTime: '',
             isCurrentPeriod: false,
