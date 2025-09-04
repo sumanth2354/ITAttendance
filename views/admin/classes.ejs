@@ -237,7 +237,8 @@
                     
                     if (data.success) {
                         alert('Class deleted successfully!');
-                        location.reload();
+                        // Force reload with cache busting
+                        window.location.href = window.location.href + '?t=' + Date.now();
                     } else {
                         alert('Error deleting class: ' + data.message);
                     }

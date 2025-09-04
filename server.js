@@ -21,7 +21,13 @@ app.use(session({
     secret: 'attendance-secret-key',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false }
+    cookie: { 
+        secure: false,
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+        httpOnly: true, // Prevents XSS attacks
+        sameSite: 'lax' // CSRF protection
+    },
+    rolling: true // Reset expiration on each request
 }));
 
 // Set view engine
@@ -1179,6 +1185,13 @@ app.get('/admin/dashboard', requireAdmin, async (req, res) => {
 // Manage Classes
 app.get('/admin/classes', requireAdmin, async (req, res) => {
     try {
+        // Prevent caching of this page
+        res.set({
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        });
+        
         const classes = await queryAll(`
             SELECT c.*, u.name as teacher_name 
             FROM classes c 
@@ -1986,18 +1999,33 @@ app.post('/admin/reset-password', requireAdmin, async (req, res) => {
 app.delete('/admin/classes/delete/:id', requireAdmin, async (req, res) => {
     const class_id = req.params.id;
     try {
+        console.log(`[${new Date().toISOString()}] HOD deleting class ID: ${class_id}`);
+        
+        // Get class details before deletion for logging
+        const classDetails = await queryOne('SELECT * FROM classes WHERE id = $1', [class_id]);
+        if (!classDetails) {
+            return res.json({ success: false, message: 'Class not found' });
+        }
+        
+        console.log(`[${new Date().toISOString()}] Deleting class: ${classDetails.class_name}`);
+        
         // First delete related attendance records
-        await query('DELETE FROM attendance WHERE class_id = $1', [class_id]);
+        const attendanceResult = await query('DELETE FROM attendance WHERE class_id = $1', [class_id]);
+        console.log(`[${new Date().toISOString()}] Deleted ${attendanceResult.rowCount} attendance records`);
         
         // Delete timetable periods for this class (HOD has full rights)
-        await query('DELETE FROM timetable_periods WHERE class_id = $1', [class_id]);
+        const periodsResult = await query('DELETE FROM timetable_periods WHERE class_id = $1', [class_id]);
+        console.log(`[${new Date().toISOString()}] Deleted ${periodsResult.rowCount} timetable periods`);
         
         // Then delete students in the class
-        await query('DELETE FROM students WHERE class_id = $1', [class_id]);
+        const studentsResult = await query('DELETE FROM students WHERE class_id = $1', [class_id]);
+        console.log(`[${new Date().toISOString()}] Deleted ${studentsResult.rowCount} students`);
         
         // Finally delete the class
-        await query('DELETE FROM classes WHERE id = $1', [class_id]);
+        const classResult = await query('DELETE FROM classes WHERE id = $1', [class_id]);
+        console.log(`[${new Date().toISOString()}] Deleted class: ${classResult.rowCount} rows affected`);
         
+        console.log(`[${new Date().toISOString()}] Class ${classDetails.class_name} deleted successfully`);
         res.json({ success: true });
     } catch (err) {
         console.error('Delete class error:', err);
