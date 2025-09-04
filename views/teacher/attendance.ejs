@@ -603,14 +603,23 @@
     </div>
 
     <script>
+        // Safe fetch helper that ensures JSON and sends session cookies
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, { credentials: 'same-origin', ...options });
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                const text = await response.text();
+                throw new Error(`Non-JSON response (${response.status}). Possibly redirected to login. First bytes: ${text.slice(0, 80)}`);
+            }
+            return response.json();
+        }
         let todayBookmark = null;
         
         // Load today's bookmark on page load
         async function loadTodayBookmark() {
             try {
                 const today = '<%= date %>';
-                const response = await fetch(`/api/bookmarks/<%= classInfo.id %>?startDate=${today}&endDate=${today}`);
-                const result = await response.json();
+                const result = await fetchJson(`/api/bookmarks/<%= classInfo.id %>?startDate=${today}&endDate=${today}`);
                 
                 if (result.success && result.bookmarks.length > 0) {
                     todayBookmark = result.bookmarks[0];
@@ -652,11 +661,9 @@
                 }
                 
                 try {
-                    const response = await fetch(`/api/bookmarks/${todayBookmark.id}`, {
+                    const result = await fetchJson(`/api/bookmarks/${todayBookmark.id}`, {
                         method: 'DELETE'
                     });
-                    
-                    const result = await response.json();
                     if (result.success) {
                         todayBookmark = null;
                         updateBookmarkDisplay();
@@ -677,7 +684,7 @@
                 const description = prompt('Enter description (optional):', '');
                 
                 try {
-                    const response = await fetch('/api/bookmarks', {
+                    const result = await fetchJson('/api/bookmarks', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -689,8 +696,6 @@
                             classId: <%= classInfo.id %>
                         })
                     });
-                    
-                    const result = await response.json();
                     if (result.success) {
                         todayBookmark = result.bookmark;
                         updateBookmarkDisplay();
@@ -712,7 +717,7 @@
             // Show loading state
             card.classList.add('loading');
             
-            fetch('/teacher/mark-attendance', {
+            fetchJson('/teacher/mark-attendance', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -724,7 +729,6 @@
                     date: '<%= date %>'
                 })
             })
-            .then(response => response.json())
             .then(data => {
                 card.classList.remove('loading');
                 

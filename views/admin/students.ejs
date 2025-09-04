@@ -466,11 +466,21 @@
         let currentClassId = null;
         let currentStudents = [];
         
+        // Safe fetch helper that ensures JSON and sends session cookies
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, { credentials: 'same-origin', ...options });
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                const text = await response.text();
+                throw new Error(`Non-JSON response (${response.status}). Possibly redirected to login. First bytes: ${text.slice(0, 80)}`);
+            }
+            return response.json();
+        }
+        
         // Refresh class dropdown with updated student counts
         async function refreshClassDropdown() {
             try {
-                const response = await fetch('/admin/classes/list');
-                const data = await response.json();
+                const data = await fetchJson('/admin/classes/list');
                 
                 if (data.success) {
                     const classSelect = document.getElementById('selectedClass');
@@ -513,8 +523,7 @@
             const className = classSelect.options[classSelect.selectedIndex].dataset.name;
             
             try {
-                const response = await fetch(`/admin/students/class/${classId}`);
-                const data = await response.json();
+                const data = await fetchJson(`/admin/students/class/${classId}`);
                 
                 if (data.success) {
                     currentStudents = data.students;
@@ -618,7 +627,7 @@
             const registerId = document.getElementById('registerId').value;
             
             try {
-                const response = await fetch('/admin/students/add-individual', {
+                const data = await fetchJson('/admin/students/add-individual', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -628,8 +637,6 @@
                         register_id: registerId
                     })
                 });
-                
-                const data = await response.json();
                 
                 if (data.success) {
                     alert('Student added successfully!');
@@ -655,7 +662,7 @@
             const registerId = document.getElementById('editRegisterId').value;
             
             try {
-                const response = await fetch(`/admin/students/edit/${studentId}`, {
+                const data = await fetchJson(`/admin/students/edit/${studentId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -664,8 +671,6 @@
                         register_id: registerId
                     })
                 });
-                
-                const data = await response.json();
                 
                 if (data.success) {
                     alert('Student updated successfully!');
@@ -693,7 +698,7 @@
             }
             
             try {
-                const response = await fetch('/admin/students/add', {
+                const data = await fetchJson('/admin/students/add', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -701,8 +706,6 @@
                         students_data: studentsData
                     })
                 });
-                
-                const data = await response.json();
                 
                 if (data.success) {
                     alert('Students added successfully!');
@@ -722,12 +725,10 @@
         async function deleteStudent(studentId, studentName) {
             if (confirm(`Are you sure you want to delete "${studentName}"?\n\nThis will also delete all their attendance records and cannot be undone.`)) {
                 try {
-                    const response = await fetch(`/admin/students/delete/${studentId}`, {
+                    const data = await fetchJson(`/admin/students/delete/${studentId}`, {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' }
                     });
-                    
-                    const data = await response.json();
                     
                     if (data.success) {
                         alert('Student deleted successfully!');
