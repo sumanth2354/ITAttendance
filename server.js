@@ -2011,12 +2011,38 @@ app.delete('/admin/teachers/delete/:id', requireAdmin, async (req, res) => {
         // Set marked_by to NULL for attendance records marked by this teacher
         await query('UPDATE attendance SET marked_by = NULL WHERE marked_by = $1', [teacher_id]);
         
+        // Delete bookmarks created by this teacher (HOD has full rights)
+        await query('DELETE FROM bookmarks WHERE marked_by = $1', [teacher_id]);
+        
         // Delete teacher user account
         await query('DELETE FROM users WHERE id = $1 AND role = \'teacher\'', [teacher_id]);
         
         res.json({ success: true });
     } catch (err) {
         console.error('Delete teacher error:', err);
+        res.json({ success: false, message: err.message });
+    }
+});
+
+// Fallback POST for environments that block DELETE
+app.post('/admin/teachers/delete/:id', requireAdmin, async (req, res) => {
+    const teacher_id = req.params.id;
+    try {
+        // First unassign teacher from classes
+        await query('UPDATE classes SET teacher_id = NULL WHERE teacher_id = $1', [teacher_id]);
+        
+        // Set marked_by to NULL for attendance records marked by this teacher
+        await query('UPDATE attendance SET marked_by = NULL WHERE marked_by = $1', [teacher_id]);
+        
+        // Delete bookmarks created by this teacher (HOD has full rights)
+        await query('DELETE FROM bookmarks WHERE marked_by = $1', [teacher_id]);
+        
+        // Delete teacher user account
+        await query('DELETE FROM users WHERE id = $1 AND role = \'teacher\'', [teacher_id]);
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete teacher (POST) error:', err);
         res.json({ success: false, message: err.message });
     }
 });
