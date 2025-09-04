@@ -1560,6 +1560,37 @@ app.get('/admin/classes/list', requireAdmin, async (req, res) => {
     }
 });
 
+// Delete all students in a class (and their attendance); HOD only
+app.delete('/admin/students/class/:classId', requireAdmin, async (req, res) => {
+    const classId = req.params.classId;
+    try {
+        // Delete attendance for all students of this class
+        await query(`DELETE FROM attendance WHERE class_id = $1`, [classId]);
+        // Delete students of this class
+        await query(`DELETE FROM students WHERE class_id = $1`, [classId]);
+        // Update class student count to 0
+        await query(`UPDATE classes SET total_students = 0 WHERE id = $1`, [classId]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete all students error:', err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// Fallback POST for environments that block DELETE
+app.post('/admin/students/class/:classId/delete-all', requireAdmin, async (req, res) => {
+    const classId = req.params.classId;
+    try {
+        await query(`DELETE FROM attendance WHERE class_id = $1`, [classId]);
+        await query(`DELETE FROM students WHERE class_id = $1`, [classId]);
+        await query(`UPDATE classes SET total_students = 0 WHERE id = $1`, [classId]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete all students (POST) error:', err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
 // Delete entire class with all related data (HOD only)
 app.delete('/api/admin/class/:classId', requireAdmin, async (req, res) => {
     const classId = req.params.classId;

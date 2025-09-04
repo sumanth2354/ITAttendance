@@ -354,6 +354,7 @@
                 <div>
                     <button class="btn btn-success" onclick="showAddStudentModal()">➕ Add Individual Student</button>
                     <button class="btn btn-primary" onclick="showBulkUploadModal()">📤 Bulk Add Students</button>
+                    <button class="btn btn-danger" style="margin-left: 8px;" onclick="deleteAllStudents()">🗑️ Delete All Students</button>
                 </div>
             </div>
         </div>
@@ -750,6 +751,38 @@
                 } catch (error) {
                     alert('Error deleting student: ' + error.message);
                 }
+            }
+        }
+
+        // Delete all students in the selected class
+        async function deleteAllStudents() {
+            if (!currentClassId) {
+                alert('Please select a class first');
+                return;
+            }
+            const classSelect = document.getElementById('selectedClass');
+            const className = classSelect.options[classSelect.selectedIndex].dataset.name;
+            if (!confirm(`Are you sure you want to delete ALL students in "${className}"?\n\nThis will also delete all their attendance records and cannot be undone.`)) {
+                return;
+            }
+            try {
+                // Try DELETE first
+                let result;
+                try {
+                    result = await fetchJson(`/admin/students/class/${currentClassId}`, { method: 'DELETE' });
+                } catch (err) {
+                    // Fallback to POST if DELETE blocked
+                    result = await fetchJson(`/admin/students/class/${currentClassId}/delete-all`, { method: 'POST' });
+                }
+                if (result.success) {
+                    alert('All students deleted successfully.');
+                    loadClassStudents();
+                    refreshClassDropdown();
+                } else {
+                    alert('Failed to delete all students: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error deleting all students: ' + error.message);
             }
         }
     </script>
