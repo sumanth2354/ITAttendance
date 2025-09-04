@@ -201,26 +201,49 @@
     </div>
     
     <script>
-        function deleteClass(classId, className) {
+        // Safe fetch helper that ensures JSON and sends session cookies
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, { credentials: 'same-origin', ...options });
+            if (response.status === 401) {
+                alert('Your session has expired. Redirecting to login...');
+                window.location.href = '/login';
+                throw new Error('Unauthorized');
+            }
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                const text = await response.text();
+                throw new Error(`Non-JSON response (${response.status}). Possibly redirected to login. First bytes: ${text.slice(0, 80)}`);
+            }
+            return response.json();
+        }
+
+        async function deleteClass(classId, className) {
             if (confirm(`Are you sure you want to delete the class "${className}"?\n\nThis will also delete all associated attendance records and cannot be undone.`)) {
-                fetch(`/admin/classes/delete/${classId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json'
+                try {
+                    // Try DELETE first; if it fails due to method restrictions, fallback to POST
+                    let data;
+                    try {
+                        data = await fetchJson(`/admin/classes/delete/${classId}`, {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                    } catch (err) {
+                        // Fallback to POST endpoint
+                        data = await fetchJson(`/admin/classes/delete/${classId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
                     }
-                })
-                .then(response => response.json())
-                .then(data => {
+                    
                     if (data.success) {
                         alert('Class deleted successfully!');
                         location.reload();
                     } else {
                         alert('Error deleting class: ' + data.message);
                     }
-                })
-                .catch(error => {
+                } catch (error) {
                     alert('Error deleting class: ' + error.message);
-                });
+                }
             }
         }
     </script>

@@ -1168,6 +1168,7 @@ app.get('/admin/dashboard', requireAdmin, async (req, res) => {
                 (SELECT COUNT(*) FROM classes) as classes,
                 (SELECT COUNT(*) FROM students) as total_students
         `);
+        console.log('Dashboard stats:', stats); // Debug log
         res.render('admin/dashboard', { stats, user: req.session.user, error: null });
     } catch (err) {
         console.error('Admin dashboard error:', err);
@@ -1988,6 +1989,9 @@ app.delete('/admin/classes/delete/:id', requireAdmin, async (req, res) => {
         // First delete related attendance records
         await query('DELETE FROM attendance WHERE class_id = $1', [class_id]);
         
+        // Delete timetable periods for this class (HOD has full rights)
+        await query('DELETE FROM timetable_periods WHERE class_id = $1', [class_id]);
+        
         // Then delete students in the class
         await query('DELETE FROM students WHERE class_id = $1', [class_id]);
         
@@ -2001,12 +2005,38 @@ app.delete('/admin/classes/delete/:id', requireAdmin, async (req, res) => {
     }
 });
 
+// Fallback POST for environments that block DELETE
+app.post('/admin/classes/delete/:id', requireAdmin, async (req, res) => {
+    const class_id = req.params.id;
+    try {
+        // First delete related attendance records
+        await query('DELETE FROM attendance WHERE class_id = $1', [class_id]);
+        
+        // Delete timetable periods for this class (HOD has full rights)
+        await query('DELETE FROM timetable_periods WHERE class_id = $1', [class_id]);
+        
+        // Then delete students in the class
+        await query('DELETE FROM students WHERE class_id = $1', [class_id]);
+        
+        // Finally delete the class
+        await query('DELETE FROM classes WHERE id = $1', [class_id]);
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete class (POST) error:', err);
+        res.json({ success: false, message: err.message });
+    }
+});
+
 // Delete teacher
 app.delete('/admin/teachers/delete/:id', requireAdmin, async (req, res) => {
     const teacher_id = req.params.id;
     try {
         // First unassign teacher from classes
         await query('UPDATE classes SET teacher_id = NULL WHERE teacher_id = $1', [teacher_id]);
+        
+        // Unassign teacher from timetable periods (HOD has full rights)
+        await query('UPDATE timetable_periods SET teacher_id = NULL WHERE teacher_id = $1', [teacher_id]);
         
         // Set marked_by to NULL for attendance records marked by this teacher
         await query('UPDATE attendance SET marked_by = NULL WHERE marked_by = $1', [teacher_id]);
@@ -2030,6 +2060,9 @@ app.post('/admin/teachers/delete/:id', requireAdmin, async (req, res) => {
     try {
         // First unassign teacher from classes
         await query('UPDATE classes SET teacher_id = NULL WHERE teacher_id = $1', [teacher_id]);
+        
+        // Unassign teacher from timetable periods (HOD has full rights)
+        await query('UPDATE timetable_periods SET teacher_id = NULL WHERE teacher_id = $1', [teacher_id]);
         
         // Set marked_by to NULL for attendance records marked by this teacher
         await query('UPDATE attendance SET marked_by = NULL WHERE marked_by = $1', [teacher_id]);
