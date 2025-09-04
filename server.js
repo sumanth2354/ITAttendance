@@ -37,10 +37,20 @@ const requireAuth = (req, res, next) => {
     }
 };
 
+const isApiRequest = (req) => {
+    const accept = (req.headers['accept'] || '').toLowerCase();
+    const contentType = (req.headers['content-type'] || '').toLowerCase();
+    // Treat fetch/XHR and JSON endpoints as API requests
+    return accept.includes('application/json') || contentType.includes('application/json') || req.originalUrl.startsWith('/api/') || req.originalUrl.startsWith('/admin/') || req.originalUrl.startsWith('/teacher/');
+};
+
 const requireTeacher = (req, res, next) => {
     if (req.session.user && req.session.user.role === 'teacher') {
         next();
     } else {
+        if (isApiRequest(req)) {
+            return res.status(401).json({ success: false, error: 'Session expired or not authenticated' });
+        }
         res.redirect('/login');
     }
 };
@@ -49,6 +59,9 @@ const requireAdmin = (req, res, next) => {
     if (req.session.user && req.session.user.role === 'admin') {
         next();
     } else {
+        if (isApiRequest(req)) {
+            return res.status(401).json({ success: false, error: 'Session expired or not authenticated' });
+        }
         res.redirect('/login');
     }
 };

@@ -606,6 +606,11 @@
         // Safe fetch helper that ensures JSON and sends session cookies
         async function fetchJson(url, options = {}) {
             const response = await fetch(url, { credentials: 'same-origin', ...options });
+            if (response.status === 401) {
+                alert('Your session has expired. Redirecting to login...');
+                window.location.href = '/login';
+                throw new Error('Unauthorized');
+            }
             const contentType = response.headers.get('content-type') || '';
             if (!contentType.includes('application/json')) {
                 const text = await response.text();
