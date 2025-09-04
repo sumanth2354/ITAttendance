@@ -2011,6 +2011,40 @@ app.delete('/admin/students/delete/:id', requireAdmin, async (req, res) => {
     }
 });
 
+// Fallback: Some hosts block DELETE; support POST to delete as well
+app.post('/admin/students/delete/:id', requireAdmin, async (req, res) => {
+    const student_id = req.params.id;
+    try {
+        // Get student info
+        const student = await queryOne('SELECT user_id, class_id FROM students WHERE id = $1', [student_id]);
+        
+        if (student) {
+            // Delete attendance records
+            await query('DELETE FROM attendance WHERE student_id = $1', [student_id]);
+            
+            // Delete student record
+            await query('DELETE FROM students WHERE id = $1', [student_id]);
+            
+            // Delete user account if exists
+            if (student.user_id) {
+                await query('DELETE FROM users WHERE id = $1 AND role = \'student\'', [student.user_id]);
+            }
+            
+            // Update class student count
+            await query(`
+                UPDATE classes SET total_students = (
+                    SELECT COUNT(*) FROM students WHERE class_id = $1
+                ) WHERE id = $1
+            `, [student.class_id]);
+        }
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete student via POST error:', err);
+        res.json({ success: false, message: err.message });
+    }
+});
+
 // Student routes (basic implementation)
 app.get('/student/dashboard', requireAuth, (req, res) => {
     if (req.session.user.role !== 'student') {
