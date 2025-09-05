@@ -862,7 +862,7 @@ app.get('/teacher/attendance/:classId/history', requireTeacher, async (req, res)
             ORDER BY tp.day_of_week, tp.period_number
         `, [teacherId, classId]);
         
-        // Get ALL attendance records for this class with period information
+        // Get attendance records for this class marked by THIS TEACHER only
         const attendanceRecords = await queryAll(`
             SELECT 
                 a.student_id, 
@@ -882,10 +882,12 @@ app.get('/teacher/attendance/:classId/history', requireTeacher, async (req, res)
             WHERE st.class_id = $1 
             AND a.date::date >= $2::date
             AND a.date::date <= $3::date
+            AND tp.teacher_id = $4
             ORDER BY a.date::date, st.roll_no
-        `, [classId, formatDateLocal(startDate), formatDateLocal(endDate)]);
+        `, [classId, formatDateLocal(startDate), formatDateLocal(endDate), teacherId]);
         
-        console.log(`[${new Date().toISOString()}] Found ${attendanceRecords.length} attendance records for class ${classInfo.class_name} from ${formatDateLocal(startDate)} to ${formatDateLocal(endDate)}`);
+        console.log(`[${new Date().toISOString()}] Teacher ${req.session.user.name} (ID: ${teacherId}) viewing attendance history for class ${classInfo.class_name} from ${formatDateLocal(startDate)} to ${formatDateLocal(endDate)}`);
+        console.log(`[${new Date().toISOString()}] Found ${attendanceRecords.length} attendance records marked by THIS TEACHER ONLY`);
         
         if (attendanceRecords.length > 0) {
             console.log(`[${new Date().toISOString()}] Sample attendance record:`, attendanceRecords[0]);
