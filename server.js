@@ -1726,37 +1726,47 @@ app.post('/api/attendance/bulk-update', requireTeacher, async (req, res) => {
         let updatedCount = 0;
         
         for (const change of changes) {
-            const { studentId, date, status } = change;
-            
-            if (!status || status === '') {
-                // Delete attendance record if status is empty
-                await query(`
-                    DELETE FROM attendance 
-                    WHERE student_id = $1 AND date = $2
-                `, [studentId, date]);
-                updatedCount++;
-            } else {
-                // Check if attendance record already exists
-                const existingRecord = await queryOne(`
-                    SELECT id FROM attendance 
-                    WHERE student_id = $1 AND date = $2
-                `, [studentId, date]);
-                
-                if (existingRecord) {
-                    // Update existing record
-                    await query(`
-                        UPDATE attendance 
-                        SET status = $1
-                        WHERE student_id = $2 AND date = $3
-                    `, [status, studentId, date]);
+            const { studentId, date, periodId, status } = change;
+
+            if (periodId) {
+                // This is a period-specific update
+                if (!status || status === '') {
+                    await query('DELETE FROM attendance WHERE student_id = $1 AND date = $2 AND period_id = $3', [studentId, date, periodId]);
+                    updatedCount++;
                 } else {
-                    // Create new record (manual attendance) - no period_id for historical editing
                     await query(`
-                        INSERT INTO attendance (student_id, date, status, marked_by, created_at)
-                        VALUES ($1, $2, $3, $4, NOW())
-                    `, [studentId, date, status, teacherId]);
+                        INSERT INTO attendance (student_id, class_id, period_id, date, status, marked_by)
+                        VALUES ($1, $2, $3, $4, $5, $6)
+                        ON CONFLICT (student_id, date, period_id)
+                        DO UPDATE SET status = $5, marked_by = $6
+                    `, [studentId, classId, periodId, date, status, teacherId]);
+                    updatedCount++;
                 }
-                updatedCount++;
+            } else {
+                // This is a general, non-period update (manual entry for a day without a scheduled class)
+                if (!status || status === '') {
+                    // Delete records for this student/date where there is no period
+                    await query('DELETE FROM attendance WHERE student_id = $1 AND date = $2 AND period_id IS NULL', [studentId, date]);
+                    updatedCount++;
+                } else {
+                    const existingRecord = await queryOne(
+                        'SELECT id FROM attendance WHERE student_id = $1 AND date = $2 AND period_id IS NULL',
+                        [studentId, date]
+                    );
+
+                    if (existingRecord) {
+                        await query(
+                            'UPDATE attendance SET status = $1, marked_by = $2 WHERE id = $3',
+                            [status, teacherId, existingRecord.id]
+                        );
+                    } else {
+                        await query(
+                            'INSERT INTO attendance (student_id, class_id, date, status, marked_by) VALUES ($1, $2, $3, $4, $5)',
+                            [studentId, classId, date, status, teacherId]
+                        );
+                    }
+                    updatedCount++;
+                }
             }
         }
         

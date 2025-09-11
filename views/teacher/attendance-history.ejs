@@ -694,10 +694,11 @@
                                                     <% } %>
                                                 </div>
                                                 <div class="attendance-edit">
-                                                    <select class="attendance-select" 
-                                                            data-student-id="<%= student.id %>" 
-                                                            data-date="<%= dateInfo.date %>"
-                                                            onchange="updateAttendanceStatus(this)">
+                                                <select class="attendance-select" 
+                                                        data-student-id="<%= student.id %>" 
+                                                        data-date="<%= dateInfo.date %>"
+                                                        <%= teacherPeriodsOnThisDay.length === 1 ? `data-period-id="${teacherPeriodsOnThisDay[0].id}"` : '' %>
+                                                        onchange="updateAttendanceStatus(this)">
                                                         <option value="">-</option>
                                                         <option value="P" <%= status && status.includes('P') ? 'selected' : '' %>>P</option>
                                                         <option value="A" <%= status && status.includes('A') ? 'selected' : '' %>>A</option>
@@ -938,32 +939,6 @@
                     }
                 }
             }
-        }
-        
-        function updateAttendanceStatus(selectElement) {
-            const studentId = selectElement.dataset.studentId;
-            const date = selectElement.dataset.date;
-            const status = selectElement.value;
-            const cell = selectElement.parentElement;
-            
-            // Update visual styling
-            cell.className = 'attendance-cell';
-            if (status === 'P') {
-                cell.classList.add('present');
-            } else if (status === 'A') {
-                cell.classList.add('absent');
-            } else {
-                cell.classList.add('no-record');
-            }
-            
-            // Track the change
-            const key = `${studentId}-${date}`;
-            changedRecords.set(key, { student_id: studentId, date: date, status: status });
-            
-            // Update stats
-            updateStats();
-            
-            console.log(`Updated attendance: Student ${studentId}, Date ${date}, Status ${status}`);
         }
         
         function updateStats() {
