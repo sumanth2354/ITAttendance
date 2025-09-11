@@ -697,7 +697,7 @@
                                                 <select class="attendance-select" 
                                                         data-student-id="<%= student.id %>" 
                                                         data-date="<%= dateInfo.date %>"
-                                                        <%= teacherPeriodsOnThisDay.length === 1 ? `data-period-id="${teacherPeriodsOnThisDay[0].id}"` : '' %>
+                                                        data-period-id="<%= teacherPeriodsOnThisDay.length === 1 ? teacherPeriodsOnThisDay[0].id : '' %>"
                                                         onchange="updateAttendanceStatus(this)">
                                                         <option value="">-</option>
                                                         <option value="P" <%= status && status.includes('P') ? 'selected' : '' %>>P</option>
