@@ -1166,6 +1166,186 @@ app.get('/teacher/reports/:classId', requireTeacher, async (req, res) => {
     }
 });
 
+app.get('/teacher/class-report/:classId', requireTeacher, async (req, res) => {
+    const classId = req.params.classId;
+    const teacherId = req.session.user.id;
+    const { period = 'full' } = req.query;
+
+    try {
+        // First check if this teacher is assigned to teach this class
+        const teacherAssignment = await queryOne(`
+            SELECT DISTINCT tp.id
+            FROM timetable_periods tp
+            WHERE tp.class_id = $1 AND tp.teacher_id = $2 AND tp.is_break = false
+        `, [classId, teacherId]);
+
+        if (!teacherAssignment) {
+            return res.redirect('/teacher/dashboard');
+        }
+
+        // Get all subjects for the class
+        const subjects = await queryAll(`
+            SELECT DISTINCT s.id, s.subject_name
+            FROM subjects s
+            JOIN timetable_periods tp ON s.id = tp.subject_id
+            WHERE tp.class_id = $1
+            ORDER BY s.subject_name
+        `, [classId]);
+
+        // Get all students in the class
+        const students = await queryAll(`
+            SELECT id, roll_no, student_name
+            FROM students
+            WHERE class_id = $1
+            ORDER BY roll_no
+        `, [classId]);
+
+        let dateFilter = '';
+        const params = [classId];
+        const today = new Date();
+
+        switch (period) {
+            case '2weeks':
+                const dayOfWeek = today.getDay();
+                // Calculate the start of the current week (Monday)
+                const daysToCurrentMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                const currentWeekMonday = new Date(today);
+                currentWeekMonday.setDate(today.getDate() + daysToCurrentMonday);
+                
+                // Calculate the end of the current week (Sunday)
+                const currentWeekSunday = new Date(currentWeekMonday);
+                currentWeekSunday.setDate(currentWeekMonday.getDate() + 6);
+
+                // Calculate the start of the previous week (Monday)
+                const previousWeekMonday = new Date(currentWeekMonday);
+                previousWeekMonday.setDate(currentWeekMonday.getDate() - 7);
+
+                dateFilter = `AND a.date >= $2 AND a.date <= $3`;
+                params.push(formatDateLocal(previousWeekMonday), formatDateLocal(currentWeekSunday));
+                break;
+            case 'month':
+                // Get the first day of the current month
+                const firstDayOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                dateFilter = `AND a.date >= $2`;
+                params.push(formatDateLocal(firstDayOfCurrentMonth));
+                break;
+        }
+
+        // Get timetable for the class to calculate total scheduled periods
+        const timetablePeriods = await queryAll(`
+            SELECT subject_id, day_of_week
+            FROM timetable_periods
+            WHERE class_id = $1 AND is_break = false
+        `, [classId]);
+
+        const totalClassesMap = {};
+        subjects.forEach(s => {
+            totalClassesMap[s.id] = 0;
+        });
+
+        let startDate, endDate;
+        const todayForTotal = new Date();
+
+        if (period === '2weeks') {
+            const dayOfWeek = todayForTotal.getDay();
+            const daysToCurrentMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const currentWeekMonday = new Date(todayForTotal);
+            currentWeekMonday.setDate(todayForTotal.getDate() + daysToCurrentMonday);
+            
+            const previousWeekMonday = new Date(currentWeekMonday);
+            previousWeekMonday.setDate(currentWeekMonday.getDate() - 7);
+            
+            startDate = previousWeekMonday;
+            endDate = todayForTotal;
+        } else if (period === 'month') {
+            startDate = new Date(todayForTotal.getFullYear(), todayForTotal.getMonth(), 1);
+            endDate = todayForTotal;
+        } else { // full period
+            const firstAttendance = await queryOne(`SELECT MIN(date) as min_date FROM attendance WHERE class_id = $1`, [classId]);
+            if (firstAttendance && firstAttendance.min_date) {
+                startDate = new Date(firstAttendance.min_date);
+                endDate = todayForTotal;
+            }
+        }
+
+        if (startDate && endDate) {
+            // Iterate through dates and count periods
+            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                const dayOfWeek = d.getDay(); // 0 for Sunday, 1 for Monday, etc.
+                const adjustedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek; // 1 for Monday, ..., 7 for Sunday
+
+                timetablePeriods.forEach(p => {
+                    if (p.day_of_week === adjustedDayOfWeek && p.subject_id && totalClassesMap[p.subject_id] !== undefined) {
+                        totalClassesMap[p.subject_id]++;
+                    }
+                });
+            }
+        }
+
+        // Get attended classes for each student and subject
+        let attendedClassesQuery = `
+            SELECT a.student_id, tp.subject_id, COUNT(a.id) as attended
+            FROM attendance a
+            JOIN timetable_periods tp ON a.period_id = tp.id
+            WHERE a.class_id = $1 AND a.status = 'P'
+        `;
+        let attendedClassesParams = [classId];
+
+        if (dateFilter) {
+            attendedClassesQuery += ` ${dateFilter}`;
+            // Push all date filter parameters (could be one or two)
+            attendedClassesParams.push(...params.slice(1));
+        }
+
+        attendedClassesQuery += ` GROUP BY a.student_id, tp.subject_id`;
+
+        const attendedClasses = await queryAll(attendedClassesQuery, attendedClassesParams);
+
+        const attendedClassesMap = attendedClasses.reduce((acc, row) => {
+            if (!acc[row.student_id]) {
+                acc[row.student_id] = {};
+            }
+            acc[row.student_id][row.subject_id] = row.attended;
+            return acc;
+        }, {});
+
+        const report = students.map(student => {
+            const studentReport = {
+                roll_no: student.roll_no,
+                student_name: student.student_name,
+                subjects: {}
+            };
+            subjects.forEach(subject => {
+                const attended = (attendedClassesMap[student.id] && attendedClassesMap[student.id][subject.id]) || 0;
+                const total = totalClassesMap[subject.id] || 0;
+                studentReport.subjects[subject.subject_name] = `${attended}/${total}`;
+            });
+            return studentReport;
+        });
+
+        const classInfo = await queryOne('SELECT * FROM classes WHERE id = $1', [classId]);
+
+        res.render('teacher/class-report', {
+            report,
+            classInfo,
+            subjects,
+            period,
+            user: req.session.user,
+            error: null
+        });
+    } catch (err) {
+        console.error('Reports error:', err);
+        res.render('teacher/class-report', {
+            report: [],
+            classInfo: { class_name: 'Unknown Class' },
+            subjects: [],
+            period,
+            user: req.session.user,
+            error: 'Database error'
+        });
+    }
+});
+
 // Admin (HOD) routes
 app.get('/admin/dashboard', requireAdmin, async (req, res) => {
     try {

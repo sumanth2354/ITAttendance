@@ -1,0 +1,82 @@
+<![CDATA[<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= classInfo.class_name %> - Class Report</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-bold"><%= classInfo.class_name %> - Class Report</h1>
+            <div>
+                <a href="?period=2weeks" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-l">2 Weeks</a>
+                <a href="?period=month" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4">Monthly</a>
+                <a href="?period=full" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-r">Full Term</a>
+                <button id="download-pdf" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ml-4">
+                    Download PDF
+                </button>
+            </div>
+        </div>
+        <div id="report-content" class="bg-white shadow-md rounded-lg overflow-x-auto">
+            <table class="min-w-full bg-white">
+                <thead class="bg-gray-800 text-white">
+                    <tr>
+                        <th class="py-2 px-4">Roll No</th>
+                        <th class="py-2 px-4">Student Name</th>
+                        <% subjects.forEach(subject => { %>
+                            <th class="py-2 px-4"><%= subject.subject_name %></th>
+                        <% }); %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% report.forEach(student => { %>
+                        <tr class="border-b">
+                            <td class="py-2 px-4"><%= student.roll_no %></td>
+                            <td class="py-2 px-4"><%= student.student_name %></td>
+                            <% subjects.forEach(subject => { %>
+                                <td class="py-2 px-4 text-center"><%= student.subjects[subject.subject_name] %></td>
+                            <% }); %>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        document.getElementById('download-pdf').addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const reportContent = document.getElementById('report-content');
+            const pdf = new jsPDF('p', 'pt', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const margin = 20;
+            let y = margin;
+
+            html2canvas(reportContent, { scale: 2 }).then(canvas => { // Increase scale for better resolution
+                const imgData = canvas.toDataURL('image/png');
+                const imgProps = pdf.getImageProperties(imgData);
+                const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                // Add the first page
+                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+                heightLeft -= pdfHeight;
+
+                // Add subsequent pages if needed
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight; // Adjust position for the next page
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+                    heightLeft -= pdfHeight;
+                }
+                pdf.save('<%= classInfo.class_name %>-report.pdf');
+            });
+        });
+    </script>
+</body>
+</html>]]>
