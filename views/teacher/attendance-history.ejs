@@ -694,10 +694,11 @@
                                                     <% } %>
                                                 </div>
                                                 <div class="attendance-edit">
-                                                    <select class="attendance-select" 
-                                                            data-student-id="<%= student.id %>" 
-                                                            data-date="<%= dateInfo.date %>"
-                                                            onchange="updateAttendanceStatus(this)">
+                                                <select class="attendance-select" 
+                                                        data-student-id="<%= student.id %>" 
+                                                        data-date="<%= dateInfo.date %>"
+                                                        data-period-id="<%= teacherPeriodsOnThisDay.length === 1 ? teacherPeriodsOnThisDay[0].id : '' %>"
+                                                        onchange="updateAttendanceStatus(this)">
                                                         <option value="">-</option>
                                                         <option value="P" <%= status && status.includes('P') ? 'selected' : '' %>>P</option>
                                                         <option value="A" <%= status && status.includes('A') ? 'selected' : '' %>>A</option>
@@ -721,6 +722,21 @@
     </div>
     
     <script>
+        // Safe fetch helper that ensures JSON and sends session cookies
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, { credentials: 'same-origin', ...options });
+            if (response.status === 401) {
+                alert('Your session has expired. Redirecting to login...');
+                window.location.href = '/login';
+                throw new Error('Unauthorized');
+            }
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                const text = await response.text();
+                throw new Error(`Non-JSON response (${response.status}). Possibly redirected to login. First bytes: ${text.slice(0, 80)}`);
+            }
+            return response.json();
+        }
         let changedRecords = new Map(); // Track changes before saving
         let bookmarks = new Map(); // Store bookmark data
         
@@ -772,7 +788,7 @@
             console.log('Saving changes:', changes);
             
             try {
-                const response = await fetch('/api/attendance/bulk-update', {
+                const result = await fetchJson('/api/attendance/bulk-update', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -782,8 +798,6 @@
                         changes: changes
                     })
                 });
-                
-                const result = await response.json();
                 if (result.success) {
                     alert(`Successfully updated ${result.updatedCount} attendance records!`);
                     changedRecords.clear();
@@ -925,32 +939,6 @@
                     }
                 }
             }
-        }
-        
-        function updateAttendanceStatus(selectElement) {
-            const studentId = selectElement.dataset.studentId;
-            const date = selectElement.dataset.date;
-            const status = selectElement.value;
-            const cell = selectElement.parentElement;
-            
-            // Update visual styling
-            cell.className = 'attendance-cell';
-            if (status === 'P') {
-                cell.classList.add('present');
-            } else if (status === 'A') {
-                cell.classList.add('absent');
-            } else {
-                cell.classList.add('no-record');
-            }
-            
-            // Track the change
-            const key = `${studentId}-${date}`;
-            changedRecords.set(key, { student_id: studentId, date: date, status: status });
-            
-            // Update stats
-            updateStats();
-            
-            console.log(`Updated attendance: Student ${studentId}, Date ${date}, Status ${status}`);
         }
         
         function updateStats() {

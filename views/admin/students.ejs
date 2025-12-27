@@ -354,6 +354,7 @@
                 <div>
                     <button class="btn btn-success" onclick="showAddStudentModal()">➕ Add Individual Student</button>
                     <button class="btn btn-primary" onclick="showBulkUploadModal()">📤 Bulk Add Students</button>
+                    <button class="btn btn-danger" style="margin-left: 8px;" onclick="deleteAllStudents()">🗑️ Delete All Students</button>
                 </div>
             </div>
         </div>
@@ -466,11 +467,26 @@
         let currentClassId = null;
         let currentStudents = [];
         
+        // Safe fetch helper that ensures JSON and sends session cookies
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, { credentials: 'same-origin', ...options });
+            if (response.status === 401) {
+                alert('Your session has expired. Redirecting to login...');
+                window.location.href = '/login';
+                throw new Error('Unauthorized');
+            }
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                const text = await response.text();
+                throw new Error(`Non-JSON response (${response.status}). Possibly redirected to login. First bytes: ${text.slice(0, 80)}`);
+            }
+            return response.json();
+        }
+        
         // Refresh class dropdown with updated student counts
         async function refreshClassDropdown() {
             try {
-                const response = await fetch('/admin/classes/list');
-                const data = await response.json();
+                const data = await fetchJson('/admin/classes/list');
                 
                 if (data.success) {
                     const classSelect = document.getElementById('selectedClass');
@@ -513,8 +529,7 @@
             const className = classSelect.options[classSelect.selectedIndex].dataset.name;
             
             try {
-                const response = await fetch(`/admin/students/class/${classId}`);
-                const data = await response.json();
+                const data = await fetchJson(`/admin/students/class/${classId}`);
                 
                 if (data.success) {
                     currentStudents = data.students;
@@ -618,7 +633,7 @@
             const registerId = document.getElementById('registerId').value;
             
             try {
-                const response = await fetch('/admin/students/add-individual', {
+                const data = await fetchJson('/admin/students/add-individual', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -628,8 +643,6 @@
                         register_id: registerId
                     })
                 });
-                
-                const data = await response.json();
                 
                 if (data.success) {
                     alert('Student added successfully!');
@@ -655,7 +668,7 @@
             const registerId = document.getElementById('editRegisterId').value;
             
             try {
-                const response = await fetch(`/admin/students/edit/${studentId}`, {
+                const data = await fetchJson(`/admin/students/edit/${studentId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -664,8 +677,6 @@
                         register_id: registerId
                     })
                 });
-                
-                const data = await response.json();
                 
                 if (data.success) {
                     alert('Student updated successfully!');
@@ -693,7 +704,7 @@
             }
             
             try {
-                const response = await fetch('/admin/students/add', {
+                const data = await fetchJson('/admin/students/add', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -701,8 +712,6 @@
                         students_data: studentsData
                     })
                 });
-                
-                const data = await response.json();
                 
                 if (data.success) {
                     alert('Students added successfully!');
@@ -722,12 +731,20 @@
         async function deleteStudent(studentId, studentName) {
             if (confirm(`Are you sure you want to delete "${studentName}"?\n\nThis will also delete all their attendance records and cannot be undone.`)) {
                 try {
-                    const response = await fetch(`/admin/students/delete/${studentId}`, {
-                        method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    
-                    const data = await response.json();
+                    // Try DELETE first; if it fails due to method restrictions, fallback to POST
+                    let data;
+                    try {
+                        data = await fetchJson(`/admin/students/delete/${studentId}`, {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                    } catch (err) {
+                        // Fallback to POST endpoint
+                        data = await fetchJson(`/admin/students/delete/${studentId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                    }
                     
                     if (data.success) {
                         alert('Student deleted successfully!');
@@ -739,6 +756,38 @@
                 } catch (error) {
                     alert('Error deleting student: ' + error.message);
                 }
+            }
+        }
+
+        // Delete all students in the selected class
+        async function deleteAllStudents() {
+            if (!currentClassId) {
+                alert('Please select a class first');
+                return;
+            }
+            const classSelect = document.getElementById('selectedClass');
+            const className = classSelect.options[classSelect.selectedIndex].dataset.name;
+            if (!confirm(`Are you sure you want to delete ALL students in "${className}"?\n\nThis will also delete all their attendance records and cannot be undone.`)) {
+                return;
+            }
+            try {
+                // Try DELETE first
+                let result;
+                try {
+                    result = await fetchJson(`/admin/students/class/${currentClassId}`, { method: 'DELETE' });
+                } catch (err) {
+                    // Fallback to POST if DELETE blocked
+                    result = await fetchJson(`/admin/students/class/${currentClassId}/delete-all`, { method: 'POST' });
+                }
+                if (result.success) {
+                    alert('All students deleted successfully.');
+                    loadClassStudents();
+                    refreshClassDropdown();
+                } else {
+                    alert('Failed to delete all students: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error deleting all students: ' + error.message);
             }
         }
     </script>

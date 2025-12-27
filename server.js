@@ -21,7 +21,13 @@ app.use(session({
     secret: 'attendance-secret-key',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false }
+    cookie: { 
+        secure: false,
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+        httpOnly: true, // Prevents XSS attacks
+        sameSite: 'lax' // CSRF protection
+    },
+    rolling: true // Reset expiration on each request
 }));
 
 // Set view engine
@@ -37,10 +43,20 @@ const requireAuth = (req, res, next) => {
     }
 };
 
+const isApiRequest = (req) => {
+    const accept = (req.headers['accept'] || '').toLowerCase();
+    const contentType = (req.headers['content-type'] || '').toLowerCase();
+    // Treat fetch/XHR and JSON endpoints as API requests
+    return accept.includes('application/json') || contentType.includes('application/json') || req.originalUrl.startsWith('/api/') || req.originalUrl.startsWith('/admin/') || req.originalUrl.startsWith('/teacher/');
+};
+
 const requireTeacher = (req, res, next) => {
     if (req.session.user && req.session.user.role === 'teacher') {
         next();
     } else {
+        if (isApiRequest(req)) {
+            return res.status(401).json({ success: false, error: 'Session expired or not authenticated' });
+        }
         res.redirect('/login');
     }
 };
@@ -49,6 +65,9 @@ const requireAdmin = (req, res, next) => {
     if (req.session.user && req.session.user.role === 'admin') {
         next();
     } else {
+        if (isApiRequest(req)) {
+            return res.status(401).json({ success: false, error: 'Session expired or not authenticated' });
+        }
         res.redirect('/login');
     }
 };
@@ -851,7 +870,7 @@ app.get('/teacher/attendance/:classId/history', requireTeacher, async (req, res)
             ORDER BY tp.day_of_week, tp.period_number
         `, [teacherId, classId]);
         
-        // Get ALL attendance records for this class with period information
+        // Get attendance records for this class marked by THIS TEACHER only
         const attendanceRecords = await queryAll(`
             SELECT 
                 a.student_id, 
@@ -871,10 +890,12 @@ app.get('/teacher/attendance/:classId/history', requireTeacher, async (req, res)
             WHERE st.class_id = $1 
             AND a.date::date >= $2::date
             AND a.date::date <= $3::date
+            AND tp.teacher_id = $4
             ORDER BY a.date::date, st.roll_no
-        `, [classId, formatDateLocal(startDate), formatDateLocal(endDate)]);
+        `, [classId, formatDateLocal(startDate), formatDateLocal(endDate), teacherId]);
         
-        console.log(`[${new Date().toISOString()}] Found ${attendanceRecords.length} attendance records for class ${classInfo.class_name} from ${formatDateLocal(startDate)} to ${formatDateLocal(endDate)}`);
+        console.log(`[${new Date().toISOString()}] Teacher ${req.session.user.name} (ID: ${teacherId}) viewing attendance history for class ${classInfo.class_name} from ${formatDateLocal(startDate)} to ${formatDateLocal(endDate)}`);
+        console.log(`[${new Date().toISOString()}] Found ${attendanceRecords.length} attendance records marked by THIS TEACHER ONLY`);
         
         if (attendanceRecords.length > 0) {
             console.log(`[${new Date().toISOString()}] Sample attendance record:`, attendanceRecords[0]);
@@ -1153,6 +1174,7 @@ app.get('/teacher/reports/:classId', requireTeacher, async (req, res) => {
     }
 });
 
+<<<<<<< HEAD
 // Class-wise subject attendance grid report (for all subjects in the class)
 app.get('/teacher/class-report/:classId', requireTeacher, async (req, res) => {
     const classId = req.params.classId;
@@ -1161,6 +1183,15 @@ app.get('/teacher/class-report/:classId', requireTeacher, async (req, res) => {
 
     try {
         // Ensure teacher is assigned to this class in the timetable (any subject)
+=======
+app.get('/teacher/class-report/:classId', requireTeacher, async (req, res) => {
+    const classId = req.params.classId;
+    const teacherId = req.session.user.id;
+    const { period = 'full' } = req.query;
+
+    try {
+        // First check if this teacher is assigned to teach this class
+>>>>>>> 0d1c3a856d7c4816d120e2ff7a5a58b21e3c2f1d
         const teacherAssignment = await queryOne(`
             SELECT DISTINCT tp.id
             FROM timetable_periods tp
@@ -1168,6 +1199,7 @@ app.get('/teacher/class-report/:classId', requireTeacher, async (req, res) => {
         `, [classId, teacherId]);
 
         if (!teacherAssignment) {
+<<<<<<< HEAD
             console.log(`[${new Date().toISOString()}] Teacher ${req.session.user.name} attempted to access class report for class ${classId} without assignment`);
             return res.redirect('/teacher/dashboard');
         }
@@ -1214,6 +1246,21 @@ app.get('/teacher/class-report/:classId', requireTeacher, async (req, res) => {
         }
 
         // All students in the class
+=======
+            return res.redirect('/teacher/dashboard');
+        }
+
+        // Get all subjects for the class
+        const subjects = await queryAll(`
+            SELECT DISTINCT s.id, s.subject_name
+            FROM subjects s
+            JOIN timetable_periods tp ON s.id = tp.subject_id
+            WHERE tp.class_id = $1
+            ORDER BY s.subject_name
+        `, [classId]);
+
+        // Get all students in the class
+>>>>>>> 0d1c3a856d7c4816d120e2ff7a5a58b21e3c2f1d
         const students = await queryAll(`
             SELECT id, roll_no, student_name
             FROM students
@@ -1221,6 +1268,7 @@ app.get('/teacher/class-report/:classId', requireTeacher, async (req, res) => {
             ORDER BY roll_no
         `, [classId]);
 
+<<<<<<< HEAD
         // All subjects that appear in this class timetable (any teacher)
         const subjects = await queryAll(`
             SELECT DISTINCT sub.id, sub.subject_name, sub.subject_code
@@ -1293,6 +1341,151 @@ app.get('/teacher/class-report/:classId', requireTeacher, async (req, res) => {
     } catch (err) {
         console.error('Teacher class report error:', err);
         res.redirect('/teacher/dashboard');
+=======
+        let dateFilter = '';
+        const params = [classId];
+        const today = new Date();
+
+        switch (period) {
+            case '2weeks':
+                const dayOfWeek = today.getDay();
+                // Calculate the start of the current week (Monday)
+                const daysToCurrentMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                const currentWeekMonday = new Date(today);
+                currentWeekMonday.setDate(today.getDate() + daysToCurrentMonday);
+                
+                // Calculate the end of the current week (Sunday)
+                const currentWeekSunday = new Date(currentWeekMonday);
+                currentWeekSunday.setDate(currentWeekMonday.getDate() + 6);
+
+                // Calculate the start of the previous week (Monday)
+                const previousWeekMonday = new Date(currentWeekMonday);
+                previousWeekMonday.setDate(currentWeekMonday.getDate() - 7);
+
+                dateFilter = `AND a.date >= $2 AND a.date <= $3`;
+                params.push(formatDateLocal(previousWeekMonday), formatDateLocal(currentWeekSunday));
+                break;
+            case 'month':
+                // Get the first day of the current month
+                const firstDayOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                dateFilter = `AND a.date >= $2`;
+                params.push(formatDateLocal(firstDayOfCurrentMonth));
+                break;
+        }
+
+        // Get timetable for the class to calculate total scheduled periods
+        const timetablePeriods = await queryAll(`
+            SELECT subject_id, day_of_week
+            FROM timetable_periods
+            WHERE class_id = $1 AND is_break = false
+        `, [classId]);
+
+        const totalClassesMap = {};
+        subjects.forEach(s => {
+            totalClassesMap[s.id] = 0;
+        });
+
+        let startDate, endDate;
+        const todayForTotal = new Date();
+
+        if (period === '2weeks') {
+            const dayOfWeek = todayForTotal.getDay();
+            const daysToCurrentMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const currentWeekMonday = new Date(todayForTotal);
+            currentWeekMonday.setDate(todayForTotal.getDate() + daysToCurrentMonday);
+            
+            const previousWeekMonday = new Date(currentWeekMonday);
+            previousWeekMonday.setDate(currentWeekMonday.getDate() - 7);
+            
+            startDate = previousWeekMonday;
+            endDate = todayForTotal;
+        } else if (period === 'month') {
+            startDate = new Date(todayForTotal.getFullYear(), todayForTotal.getMonth(), 1);
+            endDate = todayForTotal;
+        } else { // full period
+            const firstAttendance = await queryOne(`SELECT MIN(date) as min_date FROM attendance WHERE class_id = $1`, [classId]);
+            if (firstAttendance && firstAttendance.min_date) {
+                startDate = new Date(firstAttendance.min_date);
+                endDate = todayForTotal;
+            }
+        }
+
+        if (startDate && endDate) {
+            // Iterate through dates and count periods
+            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                const dayOfWeek = d.getDay(); // 0 for Sunday, 1 for Monday, etc.
+                const adjustedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek; // 1 for Monday, ..., 7 for Sunday
+
+                timetablePeriods.forEach(p => {
+                    if (p.day_of_week === adjustedDayOfWeek && p.subject_id && totalClassesMap[p.subject_id] !== undefined) {
+                        totalClassesMap[p.subject_id]++;
+                    }
+                });
+            }
+        }
+
+        // Get attended classes for each student and subject
+        let attendedClassesQuery = `
+            SELECT a.student_id, tp.subject_id, COUNT(a.id) as attended
+            FROM attendance a
+            JOIN timetable_periods tp ON a.period_id = tp.id
+            WHERE a.class_id = $1 AND a.status = 'P'
+        `;
+        let attendedClassesParams = [classId];
+
+        if (dateFilter) {
+            attendedClassesQuery += ` ${dateFilter}`;
+            // Push all date filter parameters (could be one or two)
+            attendedClassesParams.push(...params.slice(1));
+        }
+
+        attendedClassesQuery += ` GROUP BY a.student_id, tp.subject_id`;
+
+        const attendedClasses = await queryAll(attendedClassesQuery, attendedClassesParams);
+
+        const attendedClassesMap = attendedClasses.reduce((acc, row) => {
+            if (!acc[row.student_id]) {
+                acc[row.student_id] = {};
+            }
+            acc[row.student_id][row.subject_id] = row.attended;
+            return acc;
+        }, {});
+
+        const report = students.map(student => {
+            const studentReport = {
+                roll_no: student.roll_no,
+                student_name: student.student_name,
+                subjects: {}
+            };
+            subjects.forEach(subject => {
+                const attended = (attendedClassesMap[student.id] && attendedClassesMap[student.id][subject.id]) || 0;
+                const total = totalClassesMap[subject.id] || 0;
+                studentReport.subjects[subject.subject_name] = `${attended}/${total}`;
+            });
+            return studentReport;
+        });
+
+        const classInfo = await queryOne('SELECT * FROM classes WHERE id = $1', [classId]);
+
+        res.render('teacher/class-report', {
+            report,
+            classInfo,
+            subjects,
+            period,
+            user: req.session.user,
+            error: null
+        });
+    } catch (err) {
+        console.error('Reports error:', err);
+        res.render('teacher/class-report', {
+            report: [],
+            classInfo: { class_name: 'Unknown Class' },
+            subjects: [],
+            period,
+            user: req.session.user,
+            error: 'Database error'
+        });
+>>>>>>> 0d1c3a856d7c4816d120e2ff7a5a58b21e3c2f1d
     }
 });
 
@@ -1306,6 +1499,7 @@ app.get('/admin/dashboard', requireAdmin, async (req, res) => {
                 (SELECT COUNT(*) FROM classes) as classes,
                 (SELECT COUNT(*) FROM students) as total_students
         `);
+        console.log('Dashboard stats:', stats); // Debug log
         res.render('admin/dashboard', { stats, user: req.session.user, error: null });
     } catch (err) {
         console.error('Admin dashboard error:', err);
@@ -1316,6 +1510,13 @@ app.get('/admin/dashboard', requireAdmin, async (req, res) => {
 // Manage Classes
 app.get('/admin/classes', requireAdmin, async (req, res) => {
     try {
+        // Prevent caching of this page
+        res.set({
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        });
+        
         const classes = await queryAll(`
             SELECT c.*, u.name as teacher_name 
             FROM classes c 
@@ -1711,6 +1912,37 @@ app.get('/admin/classes/list', requireAdmin, async (req, res) => {
     }
 });
 
+// Delete all students in a class (and their attendance); HOD only
+app.delete('/admin/students/class/:classId', requireAdmin, async (req, res) => {
+    const classId = req.params.classId;
+    try {
+        // Delete attendance for all students of this class
+        await query(`DELETE FROM attendance WHERE class_id = $1`, [classId]);
+        // Delete students of this class
+        await query(`DELETE FROM students WHERE class_id = $1`, [classId]);
+        // Update class student count to 0
+        await query(`UPDATE classes SET total_students = 0 WHERE id = $1`, [classId]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete all students error:', err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// Fallback POST for environments that block DELETE
+app.post('/admin/students/class/:classId/delete-all', requireAdmin, async (req, res) => {
+    const classId = req.params.classId;
+    try {
+        await query(`DELETE FROM attendance WHERE class_id = $1`, [classId]);
+        await query(`DELETE FROM students WHERE class_id = $1`, [classId]);
+        await query(`UPDATE classes SET total_students = 0 WHERE id = $1`, [classId]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete all students (POST) error:', err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
 // Delete entire class with all related data (HOD only)
 app.delete('/api/admin/class/:classId', requireAdmin, async (req, res) => {
     const classId = req.params.classId;
@@ -1817,37 +2049,47 @@ app.post('/api/attendance/bulk-update', requireTeacher, async (req, res) => {
         let updatedCount = 0;
         
         for (const change of changes) {
-            const { studentId, date, status } = change;
-            
-            if (!status || status === '') {
-                // Delete attendance record if status is empty
-                await query(`
-                    DELETE FROM attendance 
-                    WHERE student_id = $1 AND date = $2
-                `, [studentId, date]);
-                updatedCount++;
-            } else {
-                // Check if attendance record already exists
-                const existingRecord = await queryOne(`
-                    SELECT id FROM attendance 
-                    WHERE student_id = $1 AND date = $2
-                `, [studentId, date]);
-                
-                if (existingRecord) {
-                    // Update existing record
-                    await query(`
-                        UPDATE attendance 
-                        SET status = $1
-                        WHERE student_id = $2 AND date = $3
-                    `, [status, studentId, date]);
+            const { studentId, date, periodId, status } = change;
+
+            if (periodId) {
+                // This is a period-specific update
+                if (!status || status === '') {
+                    await query('DELETE FROM attendance WHERE student_id = $1 AND date = $2 AND period_id = $3', [studentId, date, periodId]);
+                    updatedCount++;
                 } else {
-                    // Create new record (manual attendance) - no period_id for historical editing
                     await query(`
-                        INSERT INTO attendance (student_id, date, status, marked_by, created_at)
-                        VALUES ($1, $2, $3, $4, NOW())
-                    `, [studentId, date, status, teacherId]);
+                        INSERT INTO attendance (student_id, class_id, period_id, date, status, marked_by)
+                        VALUES ($1, $2, $3, $4, $5, $6)
+                        ON CONFLICT (student_id, date, period_id)
+                        DO UPDATE SET status = $5, marked_by = $6
+                    `, [studentId, classId, periodId, date, status, teacherId]);
+                    updatedCount++;
                 }
-                updatedCount++;
+            } else {
+                // This is a general, non-period update (manual entry for a day without a scheduled class)
+                if (!status || status === '') {
+                    // Delete records for this student/date where there is no period
+                    await query('DELETE FROM attendance WHERE student_id = $1 AND date = $2 AND period_id IS NULL', [studentId, date]);
+                    updatedCount++;
+                } else {
+                    const existingRecord = await queryOne(
+                        'SELECT id FROM attendance WHERE student_id = $1 AND date = $2 AND period_id IS NULL',
+                        [studentId, date]
+                    );
+
+                    if (existingRecord) {
+                        await query(
+                            'UPDATE attendance SET status = $1, marked_by = $2 WHERE id = $3',
+                            [status, teacherId, existingRecord.id]
+                        );
+                    } else {
+                        await query(
+                            'INSERT INTO attendance (student_id, class_id, date, status, marked_by) VALUES ($1, $2, $3, $4, $5)',
+                            [studentId, classId, date, status, teacherId]
+                        );
+                    }
+                    updatedCount++;
+                }
             }
         }
         
@@ -2092,8 +2334,49 @@ app.post('/admin/reset-password', requireAdmin, async (req, res) => {
 app.delete('/admin/classes/delete/:id', requireAdmin, async (req, res) => {
     const class_id = req.params.id;
     try {
+        console.log(`[${new Date().toISOString()}] HOD deleting class ID: ${class_id}`);
+        
+        // Get class details before deletion for logging
+        const classDetails = await queryOne('SELECT * FROM classes WHERE id = $1', [class_id]);
+        if (!classDetails) {
+            return res.json({ success: false, message: 'Class not found' });
+        }
+        
+        console.log(`[${new Date().toISOString()}] Deleting class: ${classDetails.class_name}`);
+        
+        // First delete related attendance records
+        const attendanceResult = await query('DELETE FROM attendance WHERE class_id = $1', [class_id]);
+        console.log(`[${new Date().toISOString()}] Deleted ${attendanceResult.rowCount} attendance records`);
+        
+        // Delete timetable periods for this class (HOD has full rights)
+        const periodsResult = await query('DELETE FROM timetable_periods WHERE class_id = $1', [class_id]);
+        console.log(`[${new Date().toISOString()}] Deleted ${periodsResult.rowCount} timetable periods`);
+        
+        // Then delete students in the class
+        const studentsResult = await query('DELETE FROM students WHERE class_id = $1', [class_id]);
+        console.log(`[${new Date().toISOString()}] Deleted ${studentsResult.rowCount} students`);
+        
+        // Finally delete the class
+        const classResult = await query('DELETE FROM classes WHERE id = $1', [class_id]);
+        console.log(`[${new Date().toISOString()}] Deleted class: ${classResult.rowCount} rows affected`);
+        
+        console.log(`[${new Date().toISOString()}] Class ${classDetails.class_name} deleted successfully`);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete class error:', err);
+        res.json({ success: false, message: err.message });
+    }
+});
+
+// Fallback POST for environments that block DELETE
+app.post('/admin/classes/delete/:id', requireAdmin, async (req, res) => {
+    const class_id = req.params.id;
+    try {
         // First delete related attendance records
         await query('DELETE FROM attendance WHERE class_id = $1', [class_id]);
+        
+        // Delete timetable periods for this class (HOD has full rights)
+        await query('DELETE FROM timetable_periods WHERE class_id = $1', [class_id]);
         
         // Then delete students in the class
         await query('DELETE FROM students WHERE class_id = $1', [class_id]);
@@ -2103,7 +2386,7 @@ app.delete('/admin/classes/delete/:id', requireAdmin, async (req, res) => {
         
         res.json({ success: true });
     } catch (err) {
-        console.error('Delete class error:', err);
+        console.error('Delete class (POST) error:', err);
         res.json({ success: false, message: err.message });
     }
 });
@@ -2115,8 +2398,14 @@ app.delete('/admin/teachers/delete/:id', requireAdmin, async (req, res) => {
         // First unassign teacher from classes
         await query('UPDATE classes SET teacher_id = NULL WHERE teacher_id = $1', [teacher_id]);
         
+        // Unassign teacher from timetable periods (HOD has full rights)
+        await query('UPDATE timetable_periods SET teacher_id = NULL WHERE teacher_id = $1', [teacher_id]);
+        
         // Set marked_by to NULL for attendance records marked by this teacher
         await query('UPDATE attendance SET marked_by = NULL WHERE marked_by = $1', [teacher_id]);
+        
+        // Delete bookmarks created by this teacher (HOD has full rights)
+        await query('DELETE FROM bookmarks WHERE marked_by = $1', [teacher_id]);
         
         // Delete teacher user account
         await query('DELETE FROM users WHERE id = $1 AND role = \'teacher\'', [teacher_id]);
@@ -2124,6 +2413,32 @@ app.delete('/admin/teachers/delete/:id', requireAdmin, async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         console.error('Delete teacher error:', err);
+        res.json({ success: false, message: err.message });
+    }
+});
+
+// Fallback POST for environments that block DELETE
+app.post('/admin/teachers/delete/:id', requireAdmin, async (req, res) => {
+    const teacher_id = req.params.id;
+    try {
+        // First unassign teacher from classes
+        await query('UPDATE classes SET teacher_id = NULL WHERE teacher_id = $1', [teacher_id]);
+        
+        // Unassign teacher from timetable periods (HOD has full rights)
+        await query('UPDATE timetable_periods SET teacher_id = NULL WHERE teacher_id = $1', [teacher_id]);
+        
+        // Set marked_by to NULL for attendance records marked by this teacher
+        await query('UPDATE attendance SET marked_by = NULL WHERE marked_by = $1', [teacher_id]);
+        
+        // Delete bookmarks created by this teacher (HOD has full rights)
+        await query('DELETE FROM bookmarks WHERE marked_by = $1', [teacher_id]);
+        
+        // Delete teacher user account
+        await query('DELETE FROM users WHERE id = $1 AND role = \'teacher\'', [teacher_id]);
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete teacher (POST) error:', err);
         res.json({ success: false, message: err.message });
     }
 });
@@ -2158,6 +2473,40 @@ app.delete('/admin/students/delete/:id', requireAdmin, async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         console.error('Delete student error:', err);
+        res.json({ success: false, message: err.message });
+    }
+});
+
+// Fallback: Some hosts block DELETE; support POST to delete as well
+app.post('/admin/students/delete/:id', requireAdmin, async (req, res) => {
+    const student_id = req.params.id;
+    try {
+        // Get student info
+        const student = await queryOne('SELECT user_id, class_id FROM students WHERE id = $1', [student_id]);
+        
+        if (student) {
+            // Delete attendance records
+            await query('DELETE FROM attendance WHERE student_id = $1', [student_id]);
+            
+            // Delete student record
+            await query('DELETE FROM students WHERE id = $1', [student_id]);
+            
+            // Delete user account if exists
+            if (student.user_id) {
+                await query('DELETE FROM users WHERE id = $1 AND role = \'student\'', [student.user_id]);
+            }
+            
+            // Update class student count
+            await query(`
+                UPDATE classes SET total_students = (
+                    SELECT COUNT(*) FROM students WHERE class_id = $1
+                ) WHERE id = $1
+            `, [student.class_id]);
+        }
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete student via POST error:', err);
         res.json({ success: false, message: err.message });
     }
 });
