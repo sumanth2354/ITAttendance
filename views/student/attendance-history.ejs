@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance History - <%= user.name %></title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #17a2b8 0%, #6610f2 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .nav-container {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-left h1 {
+            font-size: 24px;
+        }
+
+        .nav-left p {
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .nav-right a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 5px;
+            transition: all 0.3s;
+            margin-left: 10px;
+        }
+
+        .nav-right a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .controls {
+            background: white;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .view-toggle {
+            display: inline-flex;
+            background: #f0f0f0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .view-toggle a {
+            padding: 8px 14px;
+            text-decoration: none;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .view-toggle a.active {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .range-label {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .attendance-legend {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+        }
+
+        .legend-pill {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+        }
+
+        .present {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .absent {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .no-record {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .attendance-grid {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .grid-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .grid-header h2 {
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .grid-header p {
+            color: #777;
+            font-size: 13px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            max-height: 70vh;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #e9ecef;
+            padding: 8px;
+            text-align: center;
+            min-width: 70px;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .date-header {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            padding: 8px 4px;
+        }
+
+        .subject-name {
+            font-size: 9px;
+            margin-top: 2px;
+        }
+
+        .period-name {
+            font-size: 9px;
+            font-weight: 600;
+        }
+
+        .status-pill {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .info-row {
+            background: #f8f9fa;
+            text-align: left;
+        }
+
+        .info-row strong {
+            font-size: 14px;
+        }
+
+        .info-row span {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .nav-arrows {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-arrows a {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #17a2b8;
+            color: #17a2b8;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .nav-arrows a:hover {
+            background: #17a2b8;
+            color: #fff;
+        }
+
+        .scroll-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 8px 16px;
+            border-top: 1px solid #e9ecef;
+            background: #f8f9fa;
+        }
+
+        .scroll-buttons button {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .scroll-buttons button:hover {
+            background: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="nav-container">
+            <div class="nav-left">
+                <h1>Attendance History</h1>
+                <p><%= user.name %> <% if (student && student.class_name) { %> - <%= student.class_name %><% } %></p>
+            </div>
+            <div class="nav-right">
+                <a href="/student/dashboard">🏠 Dashboard</a>
+                <a href="/student/attendance">📊 Today</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="controls">
+            <div>
+                <div class="view-toggle">
+                    <a href="?view=week&date=<%= currentDate %>" class="<%= view === 'week' ? 'active' : '' %>">Week</a>
+                    <a href="?view=month&date=<%= currentDate %>" class="<%= view === 'month' ? 'active' : '' %>">Month</a>
+                </div>
+            </div>
+            <div class="nav-arrows">
+                <% if (view !== 'full') { %>
+                    <a href="?view=<%= view %>&date=<%= prevDate %>">← Prev</a>
+                    <a href="?view=<%= view %>&date=<%= nextDate %>">Next →</a>
+                <% } %>
+                <span class="range-label">
+                    <% if (view === 'week') { %>
+                        Week: <%= new Date(startDate).toLocaleDateString() %> - <%= new Date(endDate).toLocaleDateString() %>
+                    <% } else if (view === 'month') { %>
+                        <%= new Date(currentDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) %>
+                    <% } else { %>
+                        Full Term
+                    <% } %>
+                </span>
+            </div>
+            <div class="attendance-legend">
+                <span class="legend-pill present">P - Present</span>
+                <span class="legend-pill absent">A - Absent</span>
+                <span class="legend-pill no-record">- No Record</span>
+            </div>
+        </div>
+
+        <div class="attendance-grid">
+            <div class="grid-header">
+                <h2>
+                    <% if (view === 'week') { %>
+                        Weekly Attendance Grid
+                    <% } else if (view === 'month') { %>
+                        Monthly Attendance Grid
+                    <% } else { %>
+                        Full Term Attendance Grid
+                    <% } %>
+                </h2>
+                <p>Period-wise attendance based on teacher-marked records.</p>
+            </div>
+
+            <% if (!student || dates.length === 0) { %>
+                <div style="padding: 30px; text-align: center; color: #666;">
+                    <h3>No attendance data available.</h3>
+                    <p>Once your teachers start marking attendance, you will see your history here.</p>
+                </div>
+            <% } else { %>
+                <div class="table-container" id="historyTableContainer">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Info</th>
+                                <% dates.forEach(function(dateInfo) { 
+                                    const d = new Date(dateInfo.date);
+                                    const dayOfWeek = d.getDay();
+                                    const adjustedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+                                    const periodsForDay = teacherPeriodsOnSameDays.filter(p => p.day_of_week === adjustedDayOfWeek);
+                                %>
+                                    <% if (periodsForDay.length > 1) { %>
+                                        <% periodsForDay.forEach(function(period) { %>
+                                            <th class="date-header">
+                                                <div><%= dateInfo.day %> <%= dateInfo.dayNum %></div>
+                                                <div class="period-name">P<%= period.period_number %></div>
+                                                <div class="subject-name"><%= period.subject_code || '' %></div>
+                                            </th>
+                                        <% }); %>
+                                    <% } else { %>
+                                        <th class="date-header">
+                                            <div><%= dateInfo.day %> <%= dateInfo.dayNum %></div>
+                                            <% if (periodsForDay.length === 1) { %>
+                                                <div class="subject-name"><%= periodsForDay[0].subject_code || '' %></div>
+                                            <% } %>
+                                        </th>
+                                    <% } %>
+                                <% }); %>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="info-row">
+                                <td>
+                                    <strong><%= student.student_name %></strong><br>
+                                    <span>Roll No: <%= student.roll_no %></span>
+                                </td>
+                                <% dates.forEach(function(dateInfo) { 
+                                    const d = new Date(dateInfo.date);
+                                    const dayOfWeek = d.getDay();
+                                    const adjustedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+                                    const periodsForDay = teacherPeriodsOnSameDays.filter(p => p.day_of_week === adjustedDayOfWeek);
+                                    const dayGrid = attendanceGrid[dateInfo.date] || {};
+                                %>
+                                    <% if (periodsForDay.length > 1) { %>
+                                        <% periodsForDay.forEach(function(period) { 
+                                            const status = dayGrid[period.id];
+                                            let cls = 'no-record';
+                                            let text = '-';
+                                            if (status === 'P') { cls = 'present'; text = 'P'; }
+                                            else if (status === 'A') { cls = 'absent'; text = 'A'; }
+                                        %>
+                                            <td>
+                                                <span class="status-pill <%= cls %>"><%= text %></span>
+                                            </td>
+                                        <% }); %>
+                                    <% } else { 
+                                        const status = dayGrid.general || (periodsForDay[0] && dayGrid[periodsForDay[0].id]);
+                                        let cls = 'no-record';
+                                        let text = '-';
+                                        if (status === 'P') { cls = 'present'; text = 'P'; }
+                                        else if (status === 'A') { cls = 'absent'; text = 'A'; }
+                                    %>
+                                        <td>
+                                            <span class="status-pill <%= cls %>"><%= text %></span>
+                                        </td>
+                                    <% } %>
+                                <% }); %>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="scroll-buttons">
+                    <button type="button" onclick="scrollHistory(-1)">⬅ Scroll Left</button>
+                    <button type="button" onclick="scrollHistory(1)">Scroll Right ➡</button>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+    <script>
+        function scrollHistory(direction) {
+            const container = document.getElementById('historyTableContainer');
+            if (!container) return;
+            const amount = 300 * direction;
+            container.scrollBy({ left: amount, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
+
+

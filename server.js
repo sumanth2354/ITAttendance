@@ -53,6 +53,14 @@ const requireAdmin = (req, res, next) => {
     }
 };
 
+const requireStudent = (req, res, next) => {
+    if (req.session.user && req.session.user.role === 'student') {
+        next();
+    } else {
+        res.redirect('/login');
+    }
+};
+
 // Helper functions for timetable-based functionality
 const formatDateLocal = (dateInput) => {
     const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
@@ -1145,6 +1153,149 @@ app.get('/teacher/reports/:classId', requireTeacher, async (req, res) => {
     }
 });
 
+// Class-wise subject attendance grid report (for all subjects in the class)
+app.get('/teacher/class-report/:classId', requireTeacher, async (req, res) => {
+    const classId = req.params.classId;
+    const { period = '2weeks', date } = req.query;
+    const teacherId = req.session.user.id;
+
+    try {
+        // Ensure teacher is assigned to this class in the timetable (any subject)
+        const teacherAssignment = await queryOne(`
+            SELECT DISTINCT tp.id
+            FROM timetable_periods tp
+            WHERE tp.class_id = $1 AND tp.teacher_id = $2 AND tp.is_break = false
+        `, [classId, teacherId]);
+
+        if (!teacherAssignment) {
+            console.log(`[${new Date().toISOString()}] Teacher ${req.session.user.name} attempted to access class report for class ${classId} without assignment`);
+            return res.redirect('/teacher/dashboard');
+        }
+
+        const baseDate = date ? new Date(date) : getNowIST();
+        let fromDate = null;
+        let startDate = null;
+        let endDate = null;
+        let prevDate = null;
+        let nextDate = null;
+
+        if (period === '2weeks') {
+            // 2 weeks ending on the selected date (or today)
+            endDate = new Date(baseDate);
+            startDate = new Date(baseDate);
+            startDate.setDate(baseDate.getDate() - 13); // 14 days total (13 days back + today)
+            fromDate = formatDateLocal(startDate);
+            
+            // Navigation dates
+            prevDate = new Date(baseDate);
+            prevDate.setDate(baseDate.getDate() - 14);
+            nextDate = new Date(baseDate);
+            nextDate.setDate(baseDate.getDate() + 14);
+        } else if (period === 'month') {
+            // Full month containing the selected date
+            startDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+            endDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
+            fromDate = formatDateLocal(startDate);
+            
+            // Navigation dates
+            prevDate = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, 1);
+            nextDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 1);
+        } else {
+            // full term - no date filter
+            startDate = null;
+            endDate = null;
+            fromDate = null;
+        }
+
+        // Class info
+        const classInfo = await queryOne('SELECT * FROM classes WHERE id = $1', [classId]);
+        if (!classInfo) {
+            return res.redirect('/teacher/dashboard');
+        }
+
+        // All students in the class
+        const students = await queryAll(`
+            SELECT id, roll_no, student_name
+            FROM students
+            WHERE class_id = $1
+            ORDER BY roll_no
+        `, [classId]);
+
+        // All subjects that appear in this class timetable (any teacher)
+        const subjects = await queryAll(`
+            SELECT DISTINCT sub.id, sub.subject_name, sub.subject_code
+            FROM timetable_periods tp
+            JOIN subjects sub ON tp.subject_id = sub.id
+            WHERE tp.class_id = $1
+              AND tp.is_break = false
+            ORDER BY sub.subject_name
+        `, [classId]);
+
+        // Aggregate attendance per student + subject within the chosen period
+        const params = [classId];
+        let dateFilter = '';
+        if (fromDate) {
+            dateFilter = ' AND a.date::date >= $2::date';
+            params.push(fromDate);
+        }
+
+        const attendanceAgg = await queryAll(`
+            SELECT 
+                a.student_id,
+                tp.subject_id,
+                COUNT(a.id) AS total_periods,
+                SUM(CASE WHEN a.status = 'P' THEN 1 ELSE 0 END) AS present_periods
+            FROM attendance a
+            JOIN timetable_periods tp ON a.period_id = tp.id
+            WHERE a.class_id = $1
+              ${dateFilter}
+            GROUP BY a.student_id, tp.subject_id
+        `, params);
+
+        // Build lookup: studentId -> subjectId -> percentage string
+        const attendanceMap = {};
+        attendanceAgg.forEach(row => {
+            if (!attendanceMap[row.student_id]) {
+                attendanceMap[row.student_id] = {};
+            }
+            const total = parseInt(row.total_periods, 10) || 0;
+            const present = parseInt(row.present_periods, 10) || 0;
+            const pct = total > 0 ? ((present * 100.0) / total).toFixed(1) + '%' : '0%';
+            attendanceMap[row.student_id][row.subject_id] = pct;
+        });
+
+        // Build report array with subjects map keyed by subject_name (for the EJS template)
+        const report = students.map(stu => {
+            const subjMap = {};
+            subjects.forEach(sub => {
+                const studentSubjects = attendanceMap[stu.id] || {};
+                subjMap[sub.subject_name] = studentSubjects[sub.id] || '0%';
+            });
+            return {
+                roll_no: stu.roll_no,
+                student_name: stu.student_name,
+                subjects: subjMap
+            };
+        });
+
+        res.render('teacher/class-report', {
+            classInfo,
+            subjects,
+            report,
+            period,
+            currentDate: formatDateLocal(baseDate),
+            startDate: startDate ? formatDateLocal(startDate) : null,
+            endDate: endDate ? formatDateLocal(endDate) : null,
+            prevDate: prevDate ? formatDateLocal(prevDate) : null,
+            nextDate: nextDate ? formatDateLocal(nextDate) : null,
+            user: req.session.user
+        });
+    } catch (err) {
+        console.error('Teacher class report error:', err);
+        res.redirect('/teacher/dashboard');
+    }
+});
+
 // Admin (HOD) routes
 app.get('/admin/dashboard', requireAdmin, async (req, res) => {
     try {
@@ -2012,14 +2163,468 @@ app.delete('/admin/students/delete/:id', requireAdmin, async (req, res) => {
 });
 
 // Student routes (basic implementation)
-app.get('/student/dashboard', requireAuth, (req, res) => {
+app.get('/student/dashboard', requireAuth, async (req, res) => {
     if (req.session.user.role !== 'student') {
         if (req.session.user.role === 'admin') {
             return res.redirect('/admin/dashboard');
         }
         return res.redirect('/teacher/dashboard');
     }
-    res.render('student/dashboard', { user: req.session.user });
+
+    try {
+        // Get linked student + class info for this user
+        const studentInfo = await queryOne(`
+            SELECT s.*, c.class_name, c.id as class_id
+            FROM students s
+            JOIN classes c ON s.class_id = c.id
+            WHERE s.user_id = $1
+        `, [req.session.user.id]);
+
+        res.render('student/dashboard', { user: req.session.user, studentInfo });
+    } catch (err) {
+        console.error('Student dashboard error:', err);
+        res.render('student/dashboard', { user: req.session.user, studentInfo: null });
+    }
+});
+
+// View today's attendance summary for the logged-in student
+app.get('/student/attendance', requireStudent, async (req, res) => {
+    try {
+        const student = await queryOne(`
+            SELECT s.*, c.class_name, c.id as class_id
+            FROM students s
+            JOIN classes c ON s.class_id = c.id
+            WHERE s.user_id = $1
+        `, [req.session.user.id]);
+
+        if (!student) {
+            return res.render('student/attendance', {
+                user: req.session.user,
+                student,
+                today: formatDateLocal(getNowIST()),
+                periodsToday: [],
+                stats: null
+            });
+        }
+
+        const today = formatDateLocal(getNowIST());
+
+        // All teaching periods for this student's class today
+        const currentDay = getCurrentDayOfWeek();
+        const periodsToday = await queryAll(`
+            SELECT 
+                tp.*,
+                sub.subject_name,
+                sub.subject_code,
+                u.name as teacher_name
+            FROM timetable_periods tp
+            LEFT JOIN subjects sub ON tp.subject_id = sub.id
+            LEFT JOIN users u ON tp.teacher_id = u.id
+            WHERE tp.class_id = $1
+              AND tp.day_of_week = $2
+              AND tp.is_break = false
+            ORDER BY tp.period_number
+        `, [student.class_id, currentDay]);
+
+        // Attendance records for this student today (period-wise)
+        const attendanceToday = await queryAll(`
+            SELECT 
+                a.*,
+                tp.period_number,
+                tp.start_time,
+                tp.end_time,
+                sub.subject_name,
+                sub.subject_code
+            FROM attendance a
+            LEFT JOIN timetable_periods tp ON a.period_id = tp.id
+            LEFT JOIN subjects sub ON tp.subject_id = sub.id
+            WHERE a.student_id = $1
+              AND a.class_id = $2
+              AND a.date::date = $3::date
+        `, [student.id, student.class_id, today]);
+
+        // Map attendance by period_id for easy lookup
+        const attendanceByPeriod = {};
+        attendanceToday.forEach(rec => {
+            if (rec.period_id) {
+                attendanceByPeriod[rec.period_id] = rec;
+            }
+        });
+
+        let presentCount = 0;
+        let totalMarked = 0;
+        periodsToday.forEach(p => {
+            const rec = attendanceByPeriod[p.id];
+            if (rec && rec.status) {
+                totalMarked += 1;
+                if (rec.status === 'P') presentCount += 1;
+            }
+        });
+
+        const stats = {
+            totalPeriods: periodsToday.length,
+            markedPeriods: totalMarked,
+            presentPeriods: presentCount,
+            absentPeriods: totalMarked - presentCount,
+            attendancePercentage: totalMarked > 0
+                ? Math.round((presentCount * 100.0) / totalMarked)
+                : 0
+        };
+
+        res.render('student/attendance', {
+            user: req.session.user,
+            student,
+            today,
+            periodsToday,
+            attendanceByPeriod,
+            stats
+        });
+    } catch (err) {
+        console.error('Student view attendance error:', err);
+        res.render('student/attendance', {
+            user: req.session.user,
+            student: null,
+            today: formatDateLocal(getNowIST()),
+            periodsToday: [],
+            attendanceByPeriod: {},
+            stats: null
+        });
+    }
+});
+
+// Weekly / monthly attendance history grid for a single student
+app.get('/student/attendance-history', requireStudent, async (req, res) => {
+    const { view = 'week', date } = req.query;
+
+    try {
+        const student = await queryOne(`
+            SELECT s.*, c.class_name, c.id as class_id
+            FROM students s
+            JOIN classes c ON s.class_id = c.id
+            WHERE s.user_id = $1
+        `, [req.session.user.id]);
+
+        if (!student) {
+            return res.render('student/attendance-history', {
+                user: req.session.user,
+                student: null,
+                dates: [],
+                teacherPeriodsOnSameDays: [],
+                attendanceGrid: {},
+                view,
+                currentDate: formatDateLocal(getNowIST()),
+                prevDate: formatDateLocal(getNowIST()),
+                nextDate: formatDateLocal(getNowIST()),
+                startDate: formatDateLocal(getNowIST()),
+                endDate: formatDateLocal(getNowIST())
+            });
+        }
+
+        const baseDate = date ? new Date(date) : getNowIST();
+        let startDate, endDate;
+        const dates = [];
+
+        if (view === 'month') {
+            // Month view: first to last day of the selected month
+            startDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+            endDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
+
+            const daysInMonth = endDate.getDate();
+            for (let i = 1; i <= daysInMonth; i++) {
+                const d = new Date(baseDate.getFullYear(), baseDate.getMonth(), i);
+                dates.push({
+                    date: formatDateLocal(d),
+                    day: d.toLocaleDateString('en-US', { weekday: 'short' }),
+                    dayNum: d.getDate()
+                });
+            }
+        } else if (view === 'full') {
+            // Full-term view: from first to last attendance date for this student
+            const rangeRow = await queryOne(`
+                SELECT 
+                    MIN(a.date::date) AS min_date,
+                    MAX(a.date::date) AS max_date
+                FROM attendance a
+                WHERE a.student_id = $1
+                  AND a.class_id = $2
+            `, [student.id, student.class_id]);
+
+            if (rangeRow && rangeRow.min_date) {
+                startDate = new Date(rangeRow.min_date);
+                endDate = new Date(rangeRow.max_date);
+            } else {
+                // No attendance yet – default to current week
+                startDate = new Date(baseDate);
+                endDate = new Date(baseDate);
+            }
+
+            // Generate all dates in range
+            const cursor = new Date(startDate);
+            while (cursor <= endDate) {
+                const d = new Date(cursor);
+                dates.push({
+                    date: formatDateLocal(d),
+                    day: d.toLocaleDateString('en-US', { weekday: 'short' }),
+                    dayNum: d.getDate()
+                });
+                cursor.setDate(cursor.getDate() + 1);
+            }
+        } else {
+            // Week view (Monday–Sunday)
+            const tmp = new Date(baseDate);
+            const dayOfWeek = tmp.getDay();
+            const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            startDate = new Date(tmp);
+            startDate.setDate(tmp.getDate() + daysToMonday);
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6);
+
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(startDate);
+                d.setDate(startDate.getDate() + i);
+                dates.push({
+                    date: formatDateLocal(d),
+                    day: d.toLocaleDateString('en-US', { weekday: 'short' }),
+                    dayNum: d.getDate()
+                });
+            }
+        }
+
+        // All teaching periods for this student's class (we'll filter by day in the view)
+        
+        const teacherPeriodsOnSameDays = await queryAll(`
+            SELECT tp.*, sub.subject_name, sub.subject_code, u.name as teacher_name
+            FROM timetable_periods tp
+            LEFT JOIN subjects sub ON tp.subject_id = sub.id
+            LEFT JOIN users u ON tp.teacher_id = u.id
+            WHERE tp.class_id = $1
+              AND tp.is_break = false
+            ORDER BY tp.day_of_week, tp.period_number
+        `, [student.class_id]);
+
+        // Attendance records for this student in the range
+        const attendanceRecords = await queryAll(`
+            SELECT 
+                a.date::date as date,
+                a.status,
+                a.period_id,
+                tp.period_number,
+                tp.day_of_week,
+                sub.subject_name,
+                sub.subject_code
+            FROM attendance a
+            LEFT JOIN timetable_periods tp ON a.period_id = tp.id
+            LEFT JOIN subjects sub ON tp.subject_id = sub.id
+            WHERE a.student_id = $1
+              AND a.class_id = $2
+              AND a.date::date >= $3::date
+              AND a.date::date <= $4::date
+            ORDER BY a.date::date, tp.period_number
+        `, [student.id, student.class_id, formatDateLocal(startDate), formatDateLocal(endDate)]);
+
+        // Build grid: attendanceGrid[date][period_id or 'general'] = status
+        const attendanceGrid = {};
+        dates.forEach(d => {
+            attendanceGrid[d.date] = {};
+        });
+
+        attendanceRecords.forEach(rec => {
+            const d = formatDateLocal(rec.date);
+            if (!attendanceGrid[d]) {
+                attendanceGrid[d] = {};
+            }
+            if (rec.period_id) {
+                attendanceGrid[d][rec.period_id] = rec.status;
+            } else {
+                attendanceGrid[d].general = rec.status;
+            }
+        });
+
+        // Navigation dates
+        let prevDate, nextDate;
+        if (view === 'month') {
+            prevDate = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, 1);
+            nextDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 1);
+        } else if (view === 'week') {
+            prevDate = new Date(startDate);
+            prevDate.setDate(startDate.getDate() - 7);
+            nextDate = new Date(startDate);
+            nextDate.setDate(startDate.getDate() + 7);
+        } else {
+            // Full view: keep current date; arrows will be hidden in UI
+            prevDate = baseDate;
+            nextDate = baseDate;
+        }
+
+        res.render('student/attendance-history', {
+            user: req.session.user,
+            student,
+            dates,
+            teacherPeriodsOnSameDays,
+            attendanceGrid,
+            view,
+            currentDate: formatDateLocal(baseDate),
+            prevDate: formatDateLocal(prevDate),
+            nextDate: formatDateLocal(nextDate),
+            startDate: formatDateLocal(startDate),
+            endDate: formatDateLocal(endDate)
+        });
+    } catch (err) {
+        console.error('Student attendance history error:', err);
+        const todayStr = formatDateLocal(getNowIST());
+        res.render('student/attendance-history', {
+            user: req.session.user,
+            student: null,
+            dates: [],
+            teacherPeriodsOnSameDays: [],
+            attendanceGrid: {},
+            view,
+            currentDate: todayStr,
+            prevDate: todayStr,
+            nextDate: todayStr,
+            startDate: todayStr,
+            endDate: todayStr
+        });
+    }
+});
+
+// Overall progress report for the student (weekly / monthly / full)
+app.get('/student/progress-report', requireStudent, async (req, res) => {
+    const { period = 'month' } = req.query;
+
+    try {
+        const student = await queryOne(`
+            SELECT s.*, c.class_name, c.id as class_id
+            FROM students s
+            JOIN classes c ON s.class_id = c.id
+            WHERE s.user_id = $1
+        `, [req.session.user.id]);
+
+        if (!student) {
+            return res.render('student/progress-report', {
+                user: req.session.user,
+                student: null,
+                period,
+                overall: null,
+                bySubject: [],
+                dailyTrend: []
+            });
+        }
+
+        const today = getNowIST();
+        const todayStr = formatDateLocal(today);
+        let fromDate = null;
+
+        if (period === 'week') {
+            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            fromDate = formatDateLocal(weekAgo);
+        } else if (period === 'month') {
+            const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+            fromDate = formatDateLocal(monthAgo);
+        }
+
+        const params = [student.id, student.class_id];
+        let dateFilter = '';
+        if (fromDate) {
+            dateFilter = ' AND a.date::date >= $3::date';
+            params.push(fromDate);
+        }
+
+        // Overall stats
+        const overall = await queryOne(`
+            SELECT 
+                COUNT(a.id) AS total_periods,
+                SUM(CASE WHEN a.status = 'P' THEN 1 ELSE 0 END) AS present_periods,
+                SUM(CASE WHEN a.status = 'A' THEN 1 ELSE 0 END) AS absent_periods,
+                ROUND(
+                    (SUM(CASE WHEN a.status = 'P' THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(a.id), 0)),
+                    2
+                ) AS attendance_percentage
+            FROM attendance a
+            WHERE a.student_id = $1
+              AND a.class_id = $2
+              ${dateFilter}
+        `, params);
+
+        // Per-subject breakdown, including subjects with zero attendance
+        const bySubject = await queryAll(`
+            WITH subject_list AS (
+                SELECT DISTINCT sub.id, sub.subject_name, sub.subject_code
+                FROM timetable_periods tp
+                JOIN subjects sub ON tp.subject_id = sub.id
+                WHERE tp.class_id = $2
+                  AND tp.is_break = false
+            ),
+            attendance_agg AS (
+                SELECT 
+                    tp.subject_id,
+                    COUNT(a.id) AS total_periods,
+                    SUM(CASE WHEN a.status = 'P' THEN 1 ELSE 0 END) AS present_periods,
+                    SUM(CASE WHEN a.status = 'A' THEN 1 ELSE 0 END) AS absent_periods
+                FROM attendance a
+                JOIN timetable_periods tp ON a.period_id = tp.id
+                WHERE a.student_id = $1
+                  AND a.class_id = $2
+                  ${dateFilter}
+                GROUP BY tp.subject_id
+            )
+            SELECT 
+                s.subject_name,
+                s.subject_code,
+                COALESCE(a.total_periods, 0) AS total_periods,
+                COALESCE(a.present_periods, 0) AS present_periods,
+                COALESCE(a.absent_periods, 0) AS absent_periods,
+                CASE 
+                    WHEN COALESCE(a.total_periods, 0) = 0 THEN 0
+                    ELSE ROUND(
+                        (COALESCE(a.present_periods, 0) * 100.0 / NULLIF(a.total_periods, 0)),
+                        2
+                    )
+                END AS attendance_percentage
+            FROM subject_list s
+            LEFT JOIN attendance_agg a ON a.subject_id = s.id
+            ORDER BY s.subject_name
+        `, params);
+
+        // Daily trend (last 15 days regardless of period setting)
+        const trendFrom = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
+        const dailyTrend = await queryAll(`
+            SELECT 
+                a.date::date AS date,
+                COUNT(a.id) AS total_periods,
+                SUM(CASE WHEN a.status = 'P' THEN 1 ELSE 0 END) AS present_periods,
+                ROUND(
+                    (SUM(CASE WHEN a.status = 'P' THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(a.id), 0)),
+                    2
+                ) AS attendance_percentage
+            FROM attendance a
+            WHERE a.student_id = $1
+              AND a.class_id = $2
+              AND a.date::date >= $3::date
+              AND a.date::date <= $4::date
+            GROUP BY a.date::date
+            ORDER BY a.date::date
+        `, [student.id, student.class_id, formatDateLocal(trendFrom), todayStr]);
+
+        res.render('student/progress-report', {
+            user: req.session.user,
+            student,
+            period,
+            overall,
+            bySubject,
+            dailyTrend
+        });
+    } catch (err) {
+        console.error('Student progress report error:', err);
+        res.render('student/progress-report', {
+            user: req.session.user,
+            student: null,
+            period,
+            overall: null,
+            bySubject: [],
+            dailyTrend: []
+        });
+    }
 });
 
 // Initialize database and start server

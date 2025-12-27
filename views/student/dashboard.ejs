@@ -165,35 +165,34 @@
                 <div class="feature-icon">📊</div>
                 <h3>View Attendance</h3>
                 <p>Check your attendance records and statistics for all classes.</p>
-                <a href="#" class="btn btn-primary">Coming Soon</a>
+                <a href="/student/attendance" class="btn btn-primary">View Today</a>
             </div>
             
             <div class="feature-card">
                 <div class="feature-icon">📅</div>
                 <h3>Attendance History</h3>
                 <p>View detailed history of your attendance over time.</p>
-                <a href="#" class="btn btn-primary">Coming Soon</a>
+                <a href="/student/attendance-history" class="btn btn-primary">Open History</a>
             </div>
             
             <div class="feature-card">
                 <div class="feature-icon">📈</div>
                 <h3>Progress Reports</h3>
                 <p>Track your attendance percentage and improvement trends.</p>
-                <a href="#" class="btn btn-primary">Coming Soon</a>
+                <a href="/student/progress-report" class="btn btn-primary">View Report</a>
             </div>
         </div>
         
-        <div class="welcome-card" style="margin-top: 40px;">
-            <h3>Student Features Coming Soon!</h3>
-            <p>We're working on adding comprehensive student features including:</p>
-            <ul style="text-align: left; max-width: 500px; margin: 20px auto 0; color: #666;">
-                <li>Personal attendance dashboard</li>
-                <li>Monthly and weekly attendance reports</li>
-                <li>Attendance notifications and alerts</li>
-                <li>Class-wise attendance breakdown</li>
-                <li>Downloadable attendance certificates</li>
-            </ul>
+        <% if (studentInfo) { %>
+        <div class="welcome-card" style="margin-top: 40px; text-align: left;">
+            <h3>Your Class Details</h3>
+            <p style="margin-top: 10px; color: #444;">
+                <strong>Class:</strong> <%= studentInfo.class_name %><br>
+                <strong>Roll No:</strong> <%= studentInfo.roll_no %><br>
+                <strong>Register ID:</strong> <%= user.username %>
+            </p>
         </div>
+        <% } %>
     </div>
 </body>
 </html>

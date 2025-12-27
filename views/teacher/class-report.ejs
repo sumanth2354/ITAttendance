@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= classInfo.class_name %> - Class Report</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <div class="mb-4">
+            <div class="flex justify-between items-center mb-3">
+                <div>
+                    <h1 class="text-2xl font-bold"><%= classInfo.class_name %> - Class Report</h1>
+                    <p class="text-sm text-gray-600 mt-1">Grid of subject-wise attendance percentage for each student.</p>
+                </div>
+                <div class="flex items-center">
+                    <button id="download-pdf" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm">
+                        Download PDF
+                    </button>
+                    <a href="/teacher/reports/<%= classInfo.id %>?period=full" class="ml-3 text-sm text-blue-600 hover:underline">Back to Summary</a>
+                </div>
+            </div>
+            
+            <!-- Period Selector and Calendar Controls -->
+            <div class="bg-white rounded-lg shadow-md p-4 flex flex-wrap items-center justify-between gap-4">
+                <!-- Period Toggle Buttons -->
+                <div class="flex items-center gap-0">
+                    <a href="?period=2weeks<%= currentDate ? '&date=' + currentDate : '' %>" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-l text-sm <%= period === '2weeks' ? 'ring-2 ring-blue-500 bg-blue-100' : '' %>">2 Weeks</a>
+                    <a href="?period=month<%= currentDate ? '&date=' + currentDate : '' %>" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 text-sm <%= period === 'month' ? 'ring-2 ring-blue-500 bg-blue-100' : '' %>">Monthly</a>
+                    <a href="?period=full" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-r text-sm <%= period === 'full' ? 'ring-2 ring-blue-500 bg-blue-100' : '' %>">Full Term</a>
+                </div>
+
+                <!-- Calendar and Navigation (only for 2weeks and month) -->
+                <% if (period === '2weeks' || period === 'month') { %>
+                    <div class="flex items-center gap-3">
+                        <!-- Previous Button -->
+                        <% if (prevDate) { %>
+                            <a href="?period=<%= period %>&date=<%= prevDate %>" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded text-sm transition">
+                                ← Previous
+                            </a>
+                        <% } %>
+                        
+                        <!-- Date Range Display -->
+                        <div class="text-center">
+                            <% if (period === '2weeks') { %>
+                                <div class="font-semibold text-gray-800">Week of <%= startDate ? new Date(startDate).toLocaleDateString() : '' %> - <%= endDate ? new Date(endDate).toLocaleDateString() : '' %></div>
+                            <% } else if (period === 'month') { %>
+                                <div class="font-semibold text-gray-800"><%= currentDate ? new Date(currentDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '' %></div>
+                            <% } %>
+                        </div>
+                        
+                        <!-- Calendar Date Picker -->
+                        <input 
+                            type="date" 
+                            id="date-picker" 
+                            value="<%= currentDate %>" 
+                            class="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onchange="changeDate(this.value)"
+                        />
+                        
+                        <!-- Next Button -->
+                        <% if (nextDate) { %>
+                            <a href="?period=<%= period %>&date=<%= nextDate %>" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded text-sm transition">
+                                Next →
+                            </a>
+                        <% } %>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+        <div id="report-content" class="bg-white shadow-md rounded-lg overflow-x-auto">
+            <table class="min-w-full bg-white text-sm">
+                <thead class="bg-gray-800 text-white">
+                    <tr>
+                        <th class="py-2 px-4 sticky left-0 bg-gray-800 z-10">Roll No</th>
+                        <th class="py-2 px-4 sticky left-20 bg-gray-800 z-10">Student Name</th>
+                        <% subjects.forEach(subject => { %>
+                            <th class="py-2 px-4 text-center whitespace-nowrap"><%= subject.subject_name %></th>
+                        <% }); %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% report.forEach(student => { %>
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="py-2 px-4 sticky left-0 bg-white z-10 font-semibold"><%= student.roll_no %></td>
+                            <td class="py-2 px-4 sticky left-20 bg-white z-10"><%= student.student_name %></td>
+                            <% subjects.forEach(subject => { %>
+                                <td class="py-2 px-4 text-center"><%= student.subjects[subject.subject_name] %></td>
+                            <% }); %>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        // Function to handle date picker change
+        function changeDate(selectedDate) {
+            const period = '<%= period %>';
+            const url = `?period=${period}&date=${selectedDate}`;
+            window.location.href = url;
+        }
+
+        // PDF Download handler
+        document.getElementById('download-pdf').addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const reportContent = document.getElementById('report-content');
+            const pdf = new jsPDF('p', 'pt', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+
+            html2canvas(reportContent, { scale: 2 }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const imgProps = pdf.getImageProperties(imgData);
+                const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+                heightLeft -= pdfHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+                    heightLeft -= pdfHeight;
+                }
+                pdf.save('<%= classInfo.class_name %>-report.pdf');
+            });
+        });
+    </script>
+</body>
+</html>
+
+
